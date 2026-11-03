@@ -97,3 +97,7 @@ Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-
 - Record test results with absolute dates (`2026-11-03`), never "today"
 - The hand-over note for the fysics-infra sessions is outside this folder; the memory entry for Claude Code is
   "Codex desktop speed patch". Both point here; keep the entry points' names stable or update them too
+- Remote `origin` is `git@github-jww03:jww03/chatgpt-fastlane.git`: the SSH alias `github-jww03` in `~\.ssh\config`
+  uses the key `~\.ssh\id_ed25519_github_jww03` (GitHub account jww03, created 2026-11-03), not the PC's default GitHub
+  credential (account jwwang2003). Plain `git push` works once that key is registered on the jww03 account; never change
+  the alias to another key
