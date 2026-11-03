@@ -1,9 +1,8 @@
 @echo off
-rem 3. Update the Store app (Microsoft Store via winget), then build and start the patched copy of the new version.
-rem    If a patched copy of the old version is still running, the build happens but the start is skipped:
-rem    quit the old copy and run launch.cmd. Old builds are listed; cleanup.cmd deletes them.
+rem Ask the Microsoft Store for an update of ChatGPT (winget), then start it with the Speed controls and show the status.
+rem Nothing to rebuild: launch patches whatever version is installed.
 cd /d "%~dp0"
-node "%~dp0patch-codex-speed.mjs" --store-update --full-copy --if-needed --launch
+node "%~dp0patch-codex-speed.mjs" --store-update --launch
 echo.
 node "%~dp0patch-codex-speed.mjs" --status
 echo.

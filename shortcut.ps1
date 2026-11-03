@@ -1,14 +1,13 @@
-# shortcut.ps1 — create or update the Start-menu entry for ChatGPT Fastlane, with the icon and the
-# AppUserModelID the patched copy registers ("com.openai.codex.fastlane": gate G5 of the patch changes the
-# app's own "com.openai.codex", otherwise Windows merges this entry with the running window under the name
-# "ChatGPT"). With matching ids a pinned "ChatGPT Fastlane" taskbar button adopts the running window, so the
-# taskbar shows this icon instead of a blank page. Called by patch-codex-speed.mjs --shortcut; -Read prints it.
+# shortcut.ps1 — create or update the Start-menu entry "ChatGPT Fastlane": launch.cmd (minimised console) with the
+# Fastlane icon. Since V1 ChatGPT runs as the Store app itself (patched in memory), so its window keeps the Store app's
+# own taskbar button and icon; the entry gets an AppUserModelID of its own, so Windows neither merges it with that
+# window nor with the Store app's tile. Called by patch-codex-speed.mjs --shortcut; -Read prints it.
 param(
   [string]$Lnk = (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\ChatGPT Fastlane.lnk'),
   [string]$Target = (Join-Path $PSScriptRoot 'launch.cmd'),
   [string]$WorkDir = $PSScriptRoot,
   [string]$Icon = (Join-Path $PSScriptRoot 'assets\chatgpt-fastlane.ico'),
-  [string]$Aumid = 'com.openai.codex.fastlane',
+  [string]$Aumid = 'ChatGPT.Fastlane.Launcher',
   [switch]$Read
 )
 $ErrorActionPreference = 'Stop'
@@ -62,7 +61,7 @@ namespace ChatGptFastlane {
 }
 "@
 if ($Read) { [ChatGptFastlane.Lnk]::Read($Lnk); exit 0 }
-$desc = 'Codex desktop, patched copy with the Speed controls for a custom provider. Builds the installed version first if needed.'
+$desc = 'Start ChatGPT with the Speed controls for a custom provider (ChatGPT Fastlane, patched in memory).'
 [ChatGptFastlane.Lnk]::Write($Lnk, $Target, $WorkDir, $Icon, $desc, 7, $Aumid)   # 7 = start minimised
 "Start-menu entry written: $Lnk"
 [ChatGptFastlane.Lnk]::Read($Lnk)

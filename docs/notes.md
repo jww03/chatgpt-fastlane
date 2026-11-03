@@ -1,4 +1,4 @@
-# Investigation notes and log (2026-10-30 → 2026-11-03; macOS in section 11)
+# Investigation notes and log (2026-10-30 → 2026-11-03; V0 patched copy in sections 1–11, V1 live mode in 12–13)
 
 The long form behind [the project README](../README.md): feasibility, the four gates with code excerpts, the exact
 replacements for 26.1027.3384.0, test results, the Ultrafast gateway test and the fast-mode measurement. Section
@@ -477,3 +477,25 @@ and a blocked `windows-offers` release-marker request, plausibly the app recover
 (`hasUpdate=true` was logged in the runs that stayed up too, and winget saw no update). Cause not established. The next
 start (21:36) stayed up, patched. If a live start closes again, read that run's log in `%LOCALAPPDATA%\Codex\Logs\`
 first and start once more.
+
+## 13. V1: live mode is the only method (2026-11-03, night)
+
+**Decision.** The user's condition was "if the Windows test succeeds, drop the previous method and adopt this one as V1".
+Windows passed (section 12, "Windows test"), so the patched copy (V0) was removed from the script and the entry points on
+both systems. What V0 needed and V1 does not: rebuilding `app.asar`, rewriting the integrity hash in `ChatGPT.exe` (PE
+resource) or in `Info.plist` plus the framework's `__asar_integrity` pin (macOS), ad-hoc re-signing, gate G5 (own
+AppUserModelID / bundle id), the 2 GB copy per version, `--full-copy`, `--if-needed`, `--verify-only`, `--copy`, `--live`,
+`patch.cmd` / `patch.command` and the build reports. Sections 1–11 remain as the record of how V0 worked and why it was
+replaced: it cannot keep OpenAI's signature or the Store package identity.
+
+**V1 script** (`patch-codex-speed.mjs`): `--launch` (live mode), `--store-update`, `--status`, `--check` (gates against the
+installed version, nothing started), `--shortcut`, `--cleanup` (deletes V0 copies left in `build/`), `--uninstall`,
+internal `--live-helper`. The Windows Start-menu entry keeps its icon but gets its own AppUserModelID
+`ChatGPT.Fastlane.Launcher`, since no window registers `com.openai.codex.fastlane` any more. Node 22+ (global WebSocket).
+
+**Mac tests of the V1 script (21:50–21:56).** `--check`: 4 of 4 gates once each (26.1027.61615). `--status` listed the V0
+copy `build/26.1027.61615` as a leftover; `--cleanup` deleted it (about 1 GB). `--launch` while ChatGPT ran patched:
+"already running; brought ChatGPT to the front". `--shortcut` regenerated `~/Applications/ChatGPT Fastlane.app` with
+`--launch --gui`. Cold start: ChatGPT quit, then started from that launcher: port 64894, helper pid 58254, `reloaded
+app://-/index.html`, patched bundle served to 3 windows, `--status` "ChatGPT patched in memory". The Windows smoke test
+of the V1 script is still to be run on the PC.

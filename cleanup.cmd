@@ -1,10 +1,10 @@
 @echo off
-rem Delete builds of other versions (keeps the installed version's build and anything running).
+rem Delete the patched copies Fastlane V0 left in build\ (about 2 GB each). Keeps anything running.
 cd /d "%~dp0"
 node "%~dp0patch-codex-speed.mjs" --status
 echo.
-choice /M "Delete the old builds listed above"
+choice /M "Delete the leftover copies listed above"
 if errorlevel 2 goto :eof
-node "%~dp0patch-codex-speed.mjs" --prune
+node "%~dp0patch-codex-speed.mjs" --cleanup
 echo.
 pause

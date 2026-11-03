@@ -1,11 +1,14 @@
 # ChatGPT Fastlane
 
 Enables the **Speed** controls (Standard / Fast / Ultrafast) of the ChatGPT desktop app (OpenAI's Codex app, renamed
-ChatGPT in the Microsoft Store; the package is still `OpenAI.Codex`, on macOS `/Applications/ChatGPT.app` with bundle id
-`com.openai.codex`) for a **custom model provider**, and makes the app actually send the chosen `service_tier`. On Windows
-it builds a patched **copy** of the installed app; on macOS it patches the running official app in memory (live mode, a
-patched copy is the fallback). The installation itself is never modified. Windows and macOS
-([macOS section](#macos)), Node only, no dependencies.
+ChatGPT; Windows Store package `OpenAI.Codex`, macOS `/Applications/ChatGPT.app` with bundle id `com.openai.codex`) for a
+**custom model provider**, and makes the app actually send the chosen `service_tier`. Windows and macOS, Node only,
+no dependencies.
+
+**V1 (2026-11-03): nothing is installed, copied or modified.** Fastlane starts the installed, OpenAI-signed app and
+patches it **in memory** while it runs. The app keeps its signature, its package identity, its icon and its own
+updates; every feature that checks OpenAI's signature keeps working. (V0 built a patched copy of the whole app; see
+[docs/notes.md](docs/notes.md) for that history.)
 
 > Unsupported and version-bound. It unlocks a UI gate for a feature the account already pays for; it does not change
 > what the gateway or OpenAI serve. It may conflict with the app's terms of use. Use at your own risk.
@@ -17,162 +20,88 @@ Amazon Bedrock), not from what the engine reports for the configured provider. W
 is hidden and the tier in `config.toml` is dropped: the engine sends `service_tier = default` even with
 `service_tier = "fast"` configured. Four checks in the renderer bundle cause this; the patch turns each into "allowed".
 
-## Quick start (Windows; macOS: see [macOS](#macos))
+## Quick start
 
-Requirements: Windows 10/11, the Codex app from the Microsoft Store, Node 18+ on `PATH` (tested with Node 24),
-about 2 GB of free disk per app version.
+Requirements: the ChatGPT app (Windows: from the Microsoft Store; macOS: in `/Applications`), Node 22+ on `PATH`
+(tested with Node 24).
 
-1. Quit the Store app completely (tray icon too).
-2. Double-click **`launch.cmd`**. The first run builds `build\<version>\app\` (a few minutes) and starts it.
-3. In the composer's model picker, choose a speed. Send a message, then run **`check-tier.cmd`**: it prints the tier of
-   each recent turn from the engine's own log database, which is the proof (the UI alone is not).
+1. Quit ChatGPT if it is running (Windows: tray icon too; macOS: Cmd-Q).
+2. Start **`launch.cmd`** (Windows) or **`launch.command`** (macOS), or `npm run launch`. ChatGPT opens in about 5 s,
+   already patched.
+3. Choose a speed in the composer's model picker, send a message, then run **`check-tier.cmd`** / **`check-tier.command`**:
+   it prints the tier of each recent turn from the engine's own log database, which is the proof (the UI alone is not).
+4. Recommended: **`shortcut.cmd`** / **`shortcut.command`** creates a "ChatGPT Fastlane" launcher with its own icon
+   (Windows: Start-menu entry; macOS: `~/Applications/ChatGPT Fastlane.app`). Start ChatGPT from there from now on.
 
-Everything else is the same script with other flags (each `.cmd` has a macOS twin `.command` with the same name):
+**Start ChatGPT through Fastlane every time.** ChatGPT started any other way (its own tile or Dock icon, a `codex://`
+link, the app's own restart after an update) runs unpatched; `launch` then refuses with a message: quit ChatGPT and use
+the launcher. Clicking the launcher while ChatGPT Fastlane runs only brings ChatGPT to the front.
 
-| Entry point | `npm run` | Does |
+| Entry point (`.cmd` Windows, `.command` macOS) | `npm run` | Does |
 |---|---|---|
-| `launch.cmd` | `launch` | Build the installed version if not built yet, then start the copy. If the copy already runs, brings its window to the front; if the Store app runs, says so in a message box. Output also goes to `build\launch.log` |
-| `update.cmd` | `update` | Ask the Microsoft Store for an update (winget, product `9PLM9XGG6VKS`), build the new version if needed, start it, print status |
-| `patch.cmd` | `patch` | Build only, start nothing |
-| `status.cmd` | `status` | Installed version, builds and their verification state, what is running, stale builds |
-| `cleanup.cmd` | `cleanup` | Delete builds of other versions (asks first; keeps the installed version's build and anything running) |
-| `check-tier.cmd` | `tier` | Tier of each turn in the last 3 hours, from `~/.codex/logs_2.sqlite` (`%USERPROFILE%\.codex` on Windows) |
-| `shortcut.cmd` | `shortcut` | Create or refresh the Start-menu entry "ChatGPT Fastlane" (icon + application id), see below |
-| `uninstall.cmd` | `uninstall` | Quit the copy, remove the Start-menu entry, delete `build\` (asks first), see Uninstall |
-| | `verify` | Re-verify the current build without rebuilding |
-| | `icon` | Regenerate `assets\chatgpt-fastlane.ico` from `make-icon.mjs` |
-
-Dry run without the 2 GB copy: `node patch-codex-speed.mjs` (writes only the patched `app.asar` and `ChatGPT.exe`).
-Options: `--src <installed app folder>`, `--out <output folder>`.
-
-## Start menu, taskbar and icon
-
-`shortcut.cmd` creates the Start-menu entry **ChatGPT Fastlane** (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\ChatGPT Fastlane.lnk`):
-it runs `launch.cmd` in a minimised console, carries the icon `assets\chatgpt-fastlane.ico` and the application id
-`com.openai.codex.fastlane`. The patched copy registers that same id (gate G5 changes the app's own `com.openai.codex`;
-with the shared id Windows merged the entry with the running window under the name "ChatGPT"). Nothing in the Store
-package changes, so the Store keeps updating it; the launcher builds the new version on the next start.
-
-The copy itself has no icon: Store apps keep theirs in the package manifest, and `ChatGPT.exe` carries none, so its
-taskbar button shows a blank page. Pin the entry once and the taskbar uses the icon from then on: Start → type
-**ChatGPT Fastlane** → right-click → **Pin to taskbar** (and, if you like, **Pin to Start**; unpin the Store app's tile).
-Because the ids match, the running window groups onto the pinned button. Windows 11 does not allow scripts to pin, so
-this is the one manual step.
-
-The icon is composed by `make-icon.mjs` like the Codex Start-menu tile: a dark rounded square with the app's own white
-OpenAI mark (`assets\Square44x44Logo.targetsize-256_altform-unplated.png` from the installed package), the Fysics
-Sub2API portrait circle as a badge (the gateway the speed tiers go through; default source
-`..\fysics-infra\asset_images\fysics_sub2api\sub2api_portrait.png`, or `--portrait <png>`) and an amber lightning bolt.
-`npm run icon` regenerates it; the generated `.ico` is committed, the sources are only read.
-Protocol links (`codex://`, the browser extension) still open the Store app; that association lives in the package.
-
-## After an app update
-
-Nothing to maintain by hand. The script locates the installed package each run and builds into `build\<version>\app`,
-so a new version simply gets a new folder: run `launch.cmd` (the Store updates in the background) or `update.cmd`
-(checks the Store first). Then `cleanup.cmd` removes the old build.
-
-The four gates are matched by regular expressions on the parts of the code that are stable across builds (the string
-literals `chatgpt`, `personalAccessToken`, `amazonBedrock`, `.serviceTier`), with the minified identifiers as
-wildcards. Each gate must match exactly once; otherwise the build **aborts and names the gate**, which means OpenAI
-changed that code and the pattern has to be re-derived (see `AGENTS.md`, "When something fails").
+| `launch` | `launch` | Start ChatGPT patched in memory, or bring it to the front. Refuses if ChatGPT runs normally. Output also in `build/launch.log` |
+| `update` | `update` | Windows: ask the Microsoft Store for an update (winget, product `9PLM9XGG6VKS`), then launch, then status. macOS: explains that ChatGPT updates itself, then launch |
+| `status` | `status` | Installed version, what runs, whether ChatGPT is patched (port, helper), whether the gates match, V0 leftovers |
+| | `check` | Match the gates against the installed version without starting anything |
+| `check-tier` | `tier` | Tier of each turn in the last 3 hours, from `~/.codex/logs_2.sqlite` |
+| `shortcut` | `shortcut` | Create or refresh the "ChatGPT Fastlane" launcher |
+| `cleanup` | `cleanup` | Delete patched copies Fastlane V0 left in `build/` (asks first; keeps anything running) |
+| `uninstall` | `uninstall` | Stop the helper, remove the launcher, delete `build/` (asks first), see Uninstall |
+| | `icon` | Regenerate `assets/chatgpt-fastlane.ico` from `make-icon.mjs` (Windows; reads the Store package) |
 
 ## How it works
 
-1. **Locate** the package with `Get-AppxPackage -Name OpenAI.Codex`.
-2. **Patch** the four speed gates inside `resources\app.asar` (renderer bundle `webview\assets\app-initial-*.js`) and,
-   optionally, the application id in the main-process bundle (gate G5, so the copy has its own Start-menu and taskbar
-   identity; skipped with a warning if the code moved).
-3. **Repack** the asar: new header, new integrity record for the patched file, duplicates kept deduplicated.
-4. **Re-seal** the launcher: the app is built with Electron's asar-integrity fuse on, and the expected header hash is a
-   PE resource inside `ChatGPT.exe`. The new hash is written over the old one, same length. The fuses stay untouched.
-5. **Copy** the rest of the app folder next to the patched files and **verify** (hash equality, patched strings present
-   and originals absent, file integrity, a sample of untouched files). Report: `build\<version>\report.json`.
+1. **Locate** the installed app (`Get-AppxPackage -Name OpenAI.Codex`; macOS `/Applications/ChatGPT.app`, bundle id
+   `com.openai.codex`) and read its renderer bundles from `app.asar` (read only).
+2. **Match the gates** G1–G4 by regex on stable literals with the minified identifiers as wildcards; each must match
+   exactly once, otherwise launch stops before starting anything and names the gate.
+3. **Start the app with a DevTools port** on `127.0.0.1` (random port, `--remote-debugging-port=0`). Windows: by its
+   AppUserModelID through `IApplicationActivationManager`, so it keeps its package identity; macOS: `open -a … --args`.
+   The port is read from the profile's `DevToolsActivePort`.
+4. **Helper.** A small Node process connects to that port and stays connected while ChatGPT runs. Every window's
+   request for the renderer bundle (`app://-/assets/app-initial-*.js`) is answered with the gate-patched bytes (DevTools
+   `Fetch` domain). New windows are held until interception is on; the main window, which loads before the helper
+   connects, is reloaded once. The helper exits when ChatGPT quits.
 
-The copy runs without package identity: its own updater is inert, its profile lives in `%APPDATA%\Codex` and it shares
-`~\.codex` (config, sessions, log database) with the Store app. Never run both at the same time.
+Costs: while ChatGPT runs this way, any local process of yours can drive the app through the DevTools port (web pages
+cannot: no remote origins are allowed). An app update can move the gate code (launch then names the gate) or, in
+principle, stop accepting the port (launch then says so); see `AGENTS.md`, "When something fails".
+
+## After an app update
+
+Nothing to rebuild. The Store (Windows) or ChatGPT itself (macOS, Sparkle) updates the app as usual; the next launch
+patches whatever version is installed. An update restarts ChatGPT unpatched: quit it and start it through the launcher.
 
 ## Engine-side requirements
 
-The engine must know the speed options too. In `~\.codex\config.toml`: `[features] fast_mode = true`,
-`ultrafast_mode = true`, and a model catalog that lists the speed options for the models you use (redacted example in
-[docs/notes.md](docs/notes.md), section 6). Whether Fast or Ultrafast changes anything after that depends on the gateway
-and the account behind it.
+The engine must know the speed options too. Fast appears when the provider's model list offers `priority` (on the Mac
+tested, the gateway's list does). For **Ultrafast**, `~/.codex/config.toml` needs `[features] fast_mode = true`,
+`ultrafast_mode = true` and a `model_catalog_json` that lists an `ultrafast` service tier for the models you use
+(redacted example in [docs/notes.md](docs/notes.md), section 6; back up `config.toml` first; the catalog freezes the model
+list). Whether Fast or Ultrafast changes anything after that depends on the gateway and the account behind it.
 
-## macOS
+## Platform notes
 
-Tested 2026-11-03 on macOS 27.0 (Apple silicon) with ChatGPT 26.1027.61615 (`/Applications/ChatGPT.app`, bundle id
-`com.openai.codex`; "ChatGPT Classic.app", `com.openai.chat`, is a different app and is ignored). Requirements: Node 18+
-(22.5+ for `check-tier`); `codesign`, `plutil` and `osacompile` ship with macOS.
+- **Windows** (tested 2026-11-03, Store app 26.1027.3384.0): the port file is in Chromium's user-data folder inside the
+  package's redirected profile, `%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Roaming\Codex\web\Codex\`.
+  The engine runs from a copy the Store app makes itself (`%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe`). Computer
+  Use picture-in-picture does not exist in the Windows app (macOS-only code), patched or not.
+- **macOS** (tested 2026-11-03, ChatGPT 26.1027.61615, macOS 27.0): "ChatGPT Classic.app" (`com.openai.chat`) is a
+  different app and is ignored. Computer Use picture-in-picture, the app's own tools (`codex_app`) and everything else
+  work as in the normal app.
 
-### Live mode (what `launch` does on macOS)
+## Launcher and icon
 
-No file is changed and nothing is built. `launch` starts the installed, OpenAI-signed `/Applications/ChatGPT.app` with
-a DevTools port on `127.0.0.1` (random port) plus a small helper process. While ChatGPT runs, the helper answers the
-windows' requests for the renderer bundle with the gate-patched version (gates G1–G4, computed from the installed app at
-every launch). Windows opened later are held until interception is on; the main window, which loads before the helper
-connects, is reloaded once. Because the app keeps OpenAI's signature, everything that checks it keeps working: Computer
-Use picture-in-picture and its menu, the app's own tools (`codex_app`), keychain, notifications, `codex://` links, and
-the app's own updates (Sparkle). After an update the next launch simply patches the new version.
+The launcher carries the Fastlane icon (`assets/`), composed by `make-icon.mjs` like the Codex tile: a dark rounded
+square with the app's own white OpenAI mark, the Fysics Sub2API portrait circle as a badge (the gateway the speed tiers
+go through; default source `../fysics-infra/asset_images/fysics_sub2api/sub2api_portrait.png`, or `--portrait <png>`)
+and an amber lightning bolt. The ChatGPT window itself keeps the app's own icon and taskbar/Dock button.
 
-1. Quit ChatGPT (Cmd-Q) if it is running normally; `launch` refuses to touch an app it did not start.
-2. Double-click **`launch.command`** (or `npm run launch`): ChatGPT opens in about 5 s, already patched.
-3. Choose a speed in the composer's model picker, send a message, run **`check-tier.command`**.
-4. Recommended: **`shortcut.command`** creates `~/Applications/ChatGPT Fastlane.app` (Fastlane icon) that runs launch; keep
-   it in the Dock and start ChatGPT from there. ChatGPT started any other way (its own Dock icon, Spotlight, a
-   `codex://` link, a restart after an update) runs unpatched: quit it and use the launcher. Clicking the launcher while
-   ChatGPT Fastlane runs only brings ChatGPT to the front.
-
-Costs: while ChatGPT runs this way, any local process of yours can drive the app through the DevTools port (web pages
-cannot: no remote origins are allowed). The helper exits when ChatGPT quits. `status` shows the live state.
-
-On Windows the same live mode is in the script as an opt-in, **tested on 2026-11-03** (Store app 26.1027.3384.0):
-`node patch-codex-speed.mjs --launch --live --gui`. It starts the Store app by its AppUserModelID with the same two
-switches (`IApplicationActivationManager`, so the app keeps its package identity) and reads the port from
-`%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Roaming\Codex\web\Codex\DevToolsActivePort`. Result: about
-6 s to a patched app, Speed in every window, Fast sent as `priority` by the Store app's own engine. Computer Use
-picture-in-picture is macOS-only in the Windows app (also when started normally), so live mode loses nothing there.
-`launch.cmd` still builds and starts the 2 GB copy until live mode becomes the only method.
-
-### Patched copy (fallback, `--copy`)
-
-The approach used on Windows also works on macOS, with fewer features: `node patch-codex-speed.mjs --full-copy --if-needed
---launch --copy` (build only: `patch.command`) builds `build/<version>/ChatGPT Fastlane.app` (about 15 s, ~1 GB of new
-data; the rest is an APFS clone of the installed app) and opens it. Use it only if live mode stops working (for example
-if a future version ignores the DevTools port). The copy and ChatGPT share `~/Library/Application Support/Codex` and
-`~/.codex`; never run both.
-
-The `.command` files mirror the `.cmd` files one to one (`launch`, `update`, `patch`, `status`, `cleanup`,
-`check-tier`, `shortcut`, `uninstall`); `npm run …` and the script flags are the same on both systems.
-
-What the copy needs beyond Windows:
-
-- **Two seals instead of one.** The expected asar header hash is in `Info.plist` (`ElectronAsarIntegrity`) *and* pinned
-  in OpenAI's runtime: `Codex Framework` has a 66-byte Mach-O section `__DATA_CONST,__asar_integrity` = 32-char sentinel,
-  two flag bytes, `sha256("Resources/app.asar" + "SHA256" + hash)`. Changing only the plist aborts at start with
-  "Failed to get integrity for validatable asar archive". The script rewrites both and checks the old values first.
-- **Re-signing.** The modified bundle is signed ad hoc, inside-out (helpers, framework, app), without hardened runtime,
-  keeping each part's entitlements minus those only OpenAI's provisioning profile can grant (application identifier,
-  push, associated domains, keychain and app groups); the profile is removed. Gatekeeper's `spctl` rejects an ad-hoc
-  app, but a locally built copy carries no quarantine flag and opens normally.
-- **Own identity.** Bundle id `com.openai.codex.fastlane` (gate G5 sets the same id inside the app, which on macOS names
-  the log folder `~/Library/Logs/com.openai.codex.fastlane`), name "ChatGPT Fastlane", the Fastlane icon, and
-  `LSEnvironment CODEX_SPARKLE_ENABLED=false` so the copy never updates itself into an unpatched app.
-- **Updates.** There is no Store: ChatGPT updates itself (Sparkle). `update.command` explains this; in live mode nothing
-  else is needed, with `--copy` the next launch builds the new version and `cleanup` removes the old one.
-- **Known limits of the copy: anything that checks OpenAI's signature** (live mode has none of these). Any patched copy loses OpenAI's team signature
-  (2DC432GLL2), and two features insist on it. (1) The app's own tool pipe (`codex_app`, e.g. "Inspect the active Codex
-  window") authorises callers by the team id of the caller, its parent and grandparent (`browser-use-peer-authorization.node`);
-  the engine's parent is the ad-hoc copy, so the log shows `dynamic_app_tools_peer_rejected reason=missing-code-signing-identity`.
-  (2) The Computer Use service (`~/.codex/computer-use`, OpenAI-signed) authorises the requesting app by team id, so the
-  copy gets "Sender process is not authenticated": **no Computer Use picture-in-picture preview** and no Computer Use menu
-  state. Computer Use *tools* on other apps still work (the engine that calls them is unmodified and OpenAI-signed). Push notifications, keychain-shared ChatGPT sign-in and
-  `codex://` links (they open the original) depend on OpenAI's signature as well. macOS asks again for privacy permissions
-  (microphone, automation, …) for the copy, and again after a rebuild.
-- **Ultrafast (both macOS modes)** needs the engine side as on Windows ([Engine-side requirements](#engine-side-requirements)). On the Mac
-  tested, the gateway's model list (`~/.codex/models_cache.json`) offers only `priority`, so the picker shows Standard and
-  Fast; for Ultrafast add `[features] fast_mode = true` / `ultrafast_mode = true` and a `model_catalog_json` whose models
-  list an `ultrafast` service tier (back up `config.toml` first; the catalog freezes the model list).
+- Windows: `shortcut.cmd` writes `%APPDATA%\Microsoft\Windows\Start Menu\Programs\ChatGPT Fastlane.lnk` (runs `launch.cmd`
+  minimised, its own AppUserModelID so Windows does not merge it with the Store app's tile). Pin it by hand: Start → type
+  **ChatGPT Fastlane** → right-click → **Pin to taskbar** (Windows 11 does not allow scripts to pin).
+- macOS: `shortcut.command` writes `~/Applications/ChatGPT Fastlane.app` (an AppleScript app running launch with the Node
+  that created it; run `shortcut` again if Node moves). Drag it to the Dock.
 
 ## Upstream
 
@@ -182,34 +111,24 @@ The durable fix is upstream, in github.com/openai/codex: derive speed-tier acces
 ## Layout
 
 ```
-patch-codex-speed.mjs   locate, patch, repack, re-seal, copy, verify, Store update, status, prune, launch
+patch-codex-speed.mjs   locate, match the gates, launch with the DevTools port, the helper, status, shortcut, cleanup
 check-tier.mjs          service tier per turn from the engine's log database
-*.cmd                   double-click entry points (table above)
-*.command               the same entry points for macOS (Finder double-click, Terminal)
-shortcut.ps1            writes the Start-menu entry (IShellLink + AppUserModelID); -Read prints it
+*.cmd / *.command       double-click entry points for Windows / macOS (table above)
+shortcut.ps1            writes the Windows Start-menu entry (IShellLink + AppUserModelID); -Read prints it
 make-icon.mjs, assets/  the icon (generator and output)
 AGENTS.md / CLAUDE.md   operating manual for LLM agents working in this folder
-docs/notes.md           the investigation: gates with code excerpts, exact replacements, test results, measurements
-build/                  build output, ignored by git (one full app copy per version; macOS: build/<version>/ChatGPT Fastlane.app)
+docs/notes.md           the investigation: gates with code excerpts, V0 (patched copy), V1 (live mode), test results
+build/                  launch.log and the helper's pid file, ignored by git
 ```
 
 ## Uninstall
 
-`uninstall.cmd` (or `npm run uninstall`) quits the patched copy, removes the Start-menu entry and deletes `build\`
-(the 2 GB copies and `launch.log`). Then, by hand:
+`uninstall.cmd` / `uninstall.command` (or `npm run uninstall`) stops the helper, removes the launcher and deletes
+`build/` (including any V0 copies). ChatGPT keeps running and is the normal app from its next start; it was never
+changed. Then, by hand: unpin the launcher from the taskbar or Dock, and delete this folder if you do not want the
+scripts any more. Kept on purpose: `~/.codex` (config, sessions, log database). If you also want to undo the engine-side
+settings made for the speed tiers (`service_tier`, `[features]`, `model_catalog_json` in `config.toml`), the Windows PC's
+backups from 2026-10-30 are in `~\.codex\backups\speed-settings-2026-10-30T07-18-41-033Z\`.
 
-- unpin "ChatGPT Fastlane" from the taskbar or Start if you pinned it;
-- delete this folder if you do not want the scripts any more;
-- optionally delete the copy's own profile `%APPDATA%\Codex` (window state, caches of the unpackaged copy; the Store
-  app's profile is elsewhere, under `%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0`) and `%LOCALAPPDATA%\Codex\Logs`.
-
-Kept on purpose: `~\.codex` (config, sessions, log database, shared with the Store app). If you also want to undo the
-engine-side settings made for the speed tiers (`service_tier`, `[features]`, `model_catalog_json` in `config.toml`),
-the backups from 2026-10-30 are in `~\.codex\backups\speed-settings-2026-10-30T07-18-41-033Z\`.
-
-The Store installation was never changed; if it misbehaves, repair or reset it from Settings → Apps → ChatGPT →
-Advanced options.
-
-macOS: `uninstall.command` stops the live helper (ChatGPT keeps running and is unpatched from its next start), quits a running copy and deletes `~/Applications/ChatGPT Fastlane.app` and `build/`; remove the
-launcher from the Dock yourself. Kept: `~/.codex` and `~/Library/Application Support/Codex` (both shared with ChatGPT),
-`~/Library/Logs/com.openai.codex.fastlane` (delete by hand if unwanted). `/Applications/ChatGPT.app` was never changed.
+V0 leftovers outside this folder, if you used it: Windows `%APPDATA%\Codex` and `%LOCALAPPDATA%\Codex\Logs` (the copy's
+own profile and logs); macOS `~/Library/Logs/com.openai.codex.fastlane`. Delete them by hand if unwanted.
