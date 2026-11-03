@@ -485,6 +485,22 @@ function removeTree(dir) {
   }
 }
 
+// Uninstall the patched copy: stop it if running, remove the Start-menu entry, delete build\ entirely.
+// The Store package, ~\.codex and this folder are not touched (uninstall.cmd explains what is kept).
+function uninstall() {
+  const mine = runningChatGPT().filter((p) => p.toLowerCase().startsWith(path.join(HERE, "build").toLowerCase()));
+  if (mine.length) {
+    console.log("Stopping the running patched copy...");
+    execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
+      "Get-Process ChatGPT -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '" + path.join(HERE, "build").replace(/'/g, "''") + "\\*' } | Stop-Process -Force"], { windowsHide: true });
+  }
+  const lnk = shortcutPath();
+  if (fs.existsSync(lnk)) { fs.rmSync(lnk, { force: true }); console.log(`Removed ${lnk}`); }
+  const buildRoot = path.join(HERE, "build");
+  if (fs.existsSync(buildRoot)) { console.log(`Deleting ${buildRoot}...`); removeTree(buildRoot); }
+  console.log("Done. The Store app is untouched. Kept: ~\\.codex (config, sessions), %APPDATA%\\Codex (the copy's own profile, delete it by hand if unwanted), and this folder.");
+}
+
 // Delete builds of other versions. A build whose ChatGPT.exe is running is kept. The build of the
 // installed version is always kept; the unversioned build\app is deleted only once a versioned build
 // of the same version exists, so there is always one launchable copy left.
@@ -508,6 +524,7 @@ function prune() {
 (function main() {
   if (STATUS) { status(); return; }
   if (PRUNE) { prune(); return; }
+  if (flag("--uninstall")) { uninstall(); return; }
   if (SHORTCUT && !LAUNCH) { installShortcut(); return; }
   const report = { date: new Date().toISOString(), src: SRC, version: VERSION, out: OUT };
   const reportPath = path.join(path.dirname(OUT), "report.json");

@@ -16,7 +16,8 @@
     "verify": "node patch-codex-speed.mjs --verify-only",
     "tier": "node check-tier.mjs 3",
     "shortcut": "node patch-codex-speed.mjs --shortcut",
-    "icon": "node make-icon.mjs"
+    "icon": "node make-icon.mjs",
+    "uninstall": "node patch-codex-speed.mjs --uninstall"
   },
   "os": [
     "win32"

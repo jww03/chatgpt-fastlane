@@ -35,6 +35,7 @@ Everything else is the same script with other flags:
 | `cleanup.cmd` | `cleanup` | Delete builds of other versions (asks first; keeps the installed version's build and anything running) |
 | `check-tier.cmd` | `tier` | Tier of each turn in the last 3 hours, from `%USERPROFILE%\.codex\logs_2.sqlite` |
 | `shortcut.cmd` | `shortcut` | Create or refresh the Start-menu entry "Codex Fastlane" (icon + application id), see below |
+| `uninstall.cmd` | `uninstall` | Quit the copy, remove the Start-menu entry, delete `build\` (asks first), see Uninstall |
 | | `verify` | Re-verify the current build without rebuilding |
 | | `icon` | Regenerate `assets\codex-fastlane.ico` from `make-icon.mjs` |
 
@@ -115,7 +116,19 @@ docs/notes.md           the investigation: gates with code excerpts, exact repla
 build/                  build output, ignored by git (one full app copy per version)
 ```
 
-## Revert
+## Uninstall
 
-Delete `build\`. The Store installation was never changed; if it misbehaves, repair or reset it from
-Settings → Apps → Codex → Advanced options.
+`uninstall.cmd` (or `npm run uninstall`) quits the patched copy, removes the Start-menu entry and deletes `build\`
+(the 2 GB copies and `launch.log`). Then, by hand:
+
+- unpin "Codex Fastlane" from the taskbar or Start if you pinned it;
+- delete this folder if you do not want the scripts any more;
+- optionally delete the copy's own profile `%APPDATA%\Codex` (window state, caches of the unpackaged copy; the Store
+  app's profile is elsewhere, under `%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0`) and `%LOCALAPPDATA%\Codex\Logs`.
+
+Kept on purpose: `~\.codex` (config, sessions, log database, shared with the Store app). If you also want to undo the
+engine-side settings made for the speed tiers (`service_tier`, `[features]`, `model_catalog_json` in `config.toml`),
+the backups from 2026-10-30 are in `~\.codex\backups\speed-settings-2026-10-30T07-18-41-033Z\`.
+
+The Store installation was never changed; if it misbehaves, repair or reset it from Settings → Apps → ChatGPT →
+Advanced options.

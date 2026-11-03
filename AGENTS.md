@@ -30,6 +30,8 @@ Read [README.md](README.md) for the overview and [docs/notes.md](docs/notes.md) 
 | `check-tier.cmd` | Tier of each turn in the last 3 hours from the engine's log database | `node check-tier.mjs 3` |
 | `shortcut.cmd` | Create/refresh the Start-menu entry "Codex Fastlane" → `launch.cmd`, icon `assets\codex-fastlane.ico`, app id `com.openai.codex.fastlane` (what the patched copy registers via gate G5; lets a pinned taskbar button adopt the running window and keeps the entry's own name) | `--shortcut` (runs `shortcut.ps1`; `-Read` prints the entry) |
 
+| `uninstall.cmd` | Quit the copy, delete the Start-menu entry and `build\`; keeps `~\.codex`, the profile and this folder. Only on the user's request | `--uninstall` |
+
 Pinning to the taskbar or Start is a manual step for the user; Windows 11 refuses it from scripts. The Store package's own
 tile, protocol handlers and Start entry stay as they are. The icon comes from `make-icon.mjs` (`npm run icon`): dark tile,
 the package's white OpenAI mark, the Fysics Sub2API portrait (read from the fysics-infra repo next to this folder, or
