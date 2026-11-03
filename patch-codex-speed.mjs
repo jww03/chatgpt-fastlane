@@ -46,6 +46,8 @@ const flag = (name) => args.includes(name);
 // minified identifiers are wildcards with back-references. `apply` turns the match into the patched text.
 // ---------------------------------------------------------------------------------------------
 const ID = "[A-Za-z_$][\\w$]*";
+// AppUserModelID the patched copy registers (gate G5). shortcut.ps1 writes the same id into the Start-menu entry.
+const AUMID = "com.openai.codex.fastlane";
 const GATES = [
   {
     id: "G1 UI hook (serviceTierAccess): grant access for every auth method",
@@ -71,6 +73,21 @@ const GATES = [
     re: new RegExp("return (" + ID + ")\\.account\\?\\.type===`chatgpt`(?:\\|\\|\\1\\.account\\?\\.type===`[A-Za-z]+`)+\\}\\)", "g"),
     apply: (m) => m.replace(/^return /, "return !0||"),
   },
+  {
+    id: "G5 AppUserModelID: give the copy its own id so the Start-menu entry and taskbar button are its own",
+    // case a.x.Prod:return"com.openai.codex"}   (main process bundle; the Store app uses its package id anyway)
+    re: new RegExp("(case " + ID + "\\." + ID + "\\.Prod:return)\"com\\.openai\\.codex\"\\}", "g"),
+    apply: (m) => m.replace('"com.openai.codex"', '"' + AUMID + '"'),
+    optional: true, // cosmetic: if OpenAI restructures this, the build goes on without it (warning printed)
+  },
+];
+// Verification: the patched form each gate must leave behind (and the original must be gone).
+const PATCHED_FORMS = [
+  /=!0\|\|[A-Za-z_$][\w$]*\?\.authMethod===`chatgpt`/,
+  /if\(!1\)return null;let [A-Za-z_$][\w$]* ?= ?await/,
+  /return !0\|\|[A-Za-z_$][\w$]*\?\.type===`chatgpt`/,
+  /return !0\|\|[A-Za-z_$][\w$]*\.account\?\.type===`chatgpt`/,
+  /Prod:return"com\.openai\.codex\.fastlane"\}/,
 ];
 const CANDIDATE_FILES = (p) => /^webview\/assets\/.*\.js$/.test(p) || /^\.vite\/build\/.*\.js$/.test(p);
 
@@ -230,9 +247,12 @@ function locateGates(fd, header, dataBase) {
     if (used) texts.set(p, text);
   }
   const problems = [];
-  hits.forEach((h, i) => { if (h.length !== 1) problems.push(`${GATES[i].id}: ${h.length} match(es)` + h.map((x) => ` [${x.file} @${x.index}]`).join("")); });
-  if (problems.length) throw new Error("The app's code changed; gates could not be matched exactly once:\n  " + problems.join("\n  ") + "\nRe-derive the patterns for this version (see README section 2).");
-  return { hits: hits.map((h) => h[0]), texts };
+  hits.forEach((h, i) => {
+    if (h.length === 0 && GATES[i].optional) { console.log(`  warning: ${GATES[i].id}: no match in this version; skipped (optional gate)`); return; }
+    if (h.length !== 1) problems.push(`${GATES[i].id}: ${h.length} match(es)` + h.map((x) => ` [${x.file} @${x.index}]`).join(""));
+  });
+  if (problems.length) throw new Error("The app's code changed; gates could not be matched exactly once:\n  " + problems.join("\n  ") + "\nRe-derive the patterns for this version (see docs/notes.md section 2).");
+  return { hits: hits.map((h) => h[0] ?? null), texts };
 }
 
 function buildPatchedAsar(srcAsar, outAsar) {
@@ -245,7 +265,7 @@ function buildPatchedAsar(srcAsar, outAsar) {
     let t = text;
     GATES.forEach((g, i) => {
       const h = hits[i];
-      if (h.file !== file) return;
+      if (!h || h.file !== file) return;
       const before = t.length;
       t = t.replace(h.match, () => g.apply(h.match));
       report.patched.push({ file, id: g.id, offset: h.index, matched: h.match.slice(0, 120), delta: t.length - before });
@@ -322,7 +342,7 @@ function verify(outDir) {
   const hits = [...exeText.matchAll(INTEGRITY_RE)];
   const result = { asarPath, exePath, headerHash, exeHash: hits[0]?.[1] ?? null, exeHashMatches: hits.length === 1 && hits[0][1] === headerHash, gates: [], sampleIntegrityOk: 0, sampleIntegrityBad: [] };
   // every gate must now be absent in its original form and present in patched form, across the candidate files
-  const patchedForms = [/=!0\|\|[A-Za-z_$][\w$]*\?\.authMethod===`chatgpt`/, /if\(!1\)return null;let [A-Za-z_$][\w$]* ?= ?await/, /return !0\|\|[A-Za-z_$][\w$]*\?\.type===`chatgpt`/, /return !0\|\|[A-Za-z_$][\w$]*\.account\?\.type===`chatgpt`/];
+  const patchedForms = PATCHED_FORMS;
   const found = GATES.map(() => ({ original: 0, patched: 0, integrityOk: true }));
   for (const [p, e] of walk(header)) {
     if (!CANDIDATE_FILES(p) || e.unpacked || e.size < 1000) continue;
@@ -332,7 +352,8 @@ function verify(outDir) {
     GATES.forEach((g, i) => { g.re.lastIndex = 0; if (g.re.test(text)) found[i].original++; if (patchedForms[i].test(text)) { found[i].patched++; touched = true; } });
     if (touched) { const integ = integrityOf(buf); const ok = integ.hash === e.integrity.hash && JSON.stringify(integ.blocks) === JSON.stringify(e.integrity.blocks); if (!ok) found.forEach((f) => (f.integrityOk = false)); }
   }
-  result.gates = GATES.map((g, i) => ({ id: g.id, originalAbsent: found[i].original === 0, patchedPresent: found[i].patched === 1, integrityOk: found[i].integrityOk }));
+  // an optional gate that matched nowhere (neither form) is reported as skipped and does not fail verification
+  result.gates = GATES.map((g, i) => ({ id: g.id, originalAbsent: found[i].original === 0, patchedPresent: found[i].patched === 1 || (g.optional && found[i].patched === 0 && found[i].original === 0), skipped: !!g.optional && found[i].patched === 0 && found[i].original === 0, integrityOk: found[i].integrityOk }));
   const all = [...walk(header)].filter(([, e]) => !e.unpacked);
   const sample = new Set([0, all.length - 1, all.reduce((m, [, e], i) => (e.size > all[m][1].size ? i : m), 0)]);
   for (let i = 0; i < all.length; i += 500) sample.add(i);

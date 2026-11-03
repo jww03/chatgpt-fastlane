@@ -28,10 +28,12 @@ Read [README.md](README.md) for the overview and [docs/notes.md](docs/notes.md) 
 | `status.cmd` | Installed version, builds + verification state, what is running, stale builds | `--status` |
 | `cleanup.cmd` | Show status, ask, delete builds of other versions | `--prune` |
 | `check-tier.cmd` | Tier of each turn in the last 3 hours from the engine's log database | `node check-tier.mjs 3` |
-| `shortcut.cmd` | Create/refresh the Start-menu entry "Codex Fastlane" → `launch.cmd`, icon `assets\codex-fastlane.ico`, app id `com.openai.codex` (what the copy registers; lets a pinned taskbar button adopt the running window) | `--shortcut` (runs `shortcut.ps1`; `-Read` prints the entry) |
+| `shortcut.cmd` | Create/refresh the Start-menu entry "Codex Fastlane" → `launch.cmd`, icon `assets\codex-fastlane.ico`, app id `com.openai.codex.fastlane` (what the patched copy registers via gate G5; lets a pinned taskbar button adopt the running window and keeps the entry's own name) | `--shortcut` (runs `shortcut.ps1`; `-Read` prints the entry) |
 
 Pinning to the taskbar or Start is a manual step for the user; Windows 11 refuses it from scripts. The Store package's own
-tile, protocol handlers and Start entry stay as they are. The icon comes from `make-icon.mjs` (`npm run icon`).
+tile, protocol handlers and Start entry stay as they are. The icon comes from `make-icon.mjs` (`npm run icon`): dark tile,
+the package's white OpenAI mark, the Fysics Sub2API portrait (read from the fysics-infra repo next to this folder, or
+`--portrait <png>`) and an amber bolt; change the constants at the top of that file, never edit the `.ico` by hand.
 
 Dry run (patched `app.asar` and `ChatGPT.exe` only, no 2 GB copy): `node patch-codex-speed.mjs`.
 Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-only`.
@@ -43,6 +45,8 @@ Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-
    auth method (`chatgpt` / `personalAccessToken` / `amazonBedrock`) before showing the Speed picker or keeping
    `serviceTier` in a turn. Each is matched by a regex on those literals with the minified identifiers as wildcards
    (`GATES` in the script) and must match **exactly once** across all bundles; the match is rewritten to "always allowed".
+   A fifth, optional gate (G5) changes the AppUserModelID in the main-process bundle to `com.openai.codex.fastlane`;
+   if it matches nowhere the build continues with a warning and the Start-menu entry merges with the window as "ChatGPT".
 3. **Repack:** the asar header and the patched file's integrity record are rebuilt; the new header hash is written over
    the old one inside `ChatGPT.exe` (PE resource `ElectronAsar/Integrity`, same length). The Electron fuses stay as they are.
 4. **Copy:** with `--full-copy` the rest of the app folder is copied next to the patched files. The copy runs without

@@ -45,8 +45,9 @@ Options: `--src <installed app folder>`, `--out <output folder>`.
 
 `shortcut.cmd` creates the Start-menu entry **Codex Fastlane** (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Codex Fastlane.lnk`):
 it runs `launch.cmd` in a minimised console, carries the icon `assets\codex-fastlane.ico` and the application id
-`com.openai.codex`, which is the id the patched copy registers at start-up. Nothing in the Store package changes, so the
-Store keeps updating it; the launcher builds the new version on the next start.
+`com.openai.codex.fastlane`. The patched copy registers that same id (gate G5 changes the app's own `com.openai.codex`;
+with the shared id Windows merged the entry with the running window under the name "ChatGPT"). Nothing in the Store
+package changes, so the Store keeps updating it; the launcher builds the new version on the next start.
 
 The copy itself has no icon: Store apps keep theirs in the package manifest, and `ChatGPT.exe` carries none, so its
 taskbar button shows a blank page. Pin the entry once and the taskbar uses the icon from then on: Start → type
@@ -54,7 +55,11 @@ taskbar button shows a blank page. Pin the entry once and the taskbar uses the i
 Because the ids match, the running window groups onto the pinned button. Windows 11 does not allow scripts to pin, so
 this is the one manual step.
 
-The icon is drawn by `make-icon.mjs` (dark rounded square, amber bolt; `npm run icon` regenerates it after edits).
+The icon is composed by `make-icon.mjs` like the Codex Start-menu tile: a dark rounded square with the app's own white
+OpenAI mark (`assets\Square44x44Logo.targetsize-256_altform-unplated.png` from the installed package), the Fysics
+Sub2API portrait circle as a badge (the gateway the speed tiers go through; default source
+`..\fysics-infra\asset_images\fysics_sub2api\sub2api_portrait.png`, or `--portrait <png>`) and an amber lightning bolt.
+`npm run icon` regenerates it; the generated `.ico` is committed, the sources are only read.
 Protocol links (`codex://`, the browser extension) still open the Store app; that association lives in the package.
 
 ## After an app update
@@ -71,7 +76,9 @@ changed that code and the pattern has to be re-derived (see `AGENTS.md`, "When s
 ## How it works
 
 1. **Locate** the package with `Get-AppxPackage -Name OpenAI.Codex`.
-2. **Patch** the four gates inside `resources\app.asar` (renderer bundle `webview\assets\app-initial-*.js`).
+2. **Patch** the four speed gates inside `resources\app.asar` (renderer bundle `webview\assets\app-initial-*.js`) and,
+   optionally, the application id in the main-process bundle (gate G5, so the copy has its own Start-menu and taskbar
+   identity; skipped with a warning if the code moved).
 3. **Repack** the asar: new header, new integrity record for the patched file, duplicates kept deduplicated.
 4. **Re-seal** the launcher: the app is built with Electron's asar-integrity fuse on, and the expected header hash is a
    PE resource inside `ChatGPT.exe`. The new hash is written over the old one, same length. The fuses stay untouched.
