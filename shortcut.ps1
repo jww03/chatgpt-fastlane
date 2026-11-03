@@ -1,13 +1,13 @@
-# shortcut.ps1 — create or update the Start-menu entry for Codex Fastlane, with the icon and the
+# shortcut.ps1 — create or update the Start-menu entry for ChatGPT Fastlane, with the icon and the
 # AppUserModelID the patched copy registers ("com.openai.codex.fastlane": gate G5 of the patch changes the
 # app's own "com.openai.codex", otherwise Windows merges this entry with the running window under the name
-# "ChatGPT"). With matching ids a pinned "Codex Fastlane" taskbar button adopts the running window, so the
+# "ChatGPT"). With matching ids a pinned "ChatGPT Fastlane" taskbar button adopts the running window, so the
 # taskbar shows this icon instead of a blank page. Called by patch-codex-speed.mjs --shortcut; -Read prints it.
 param(
-  [string]$Lnk = (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Codex Fastlane.lnk'),
+  [string]$Lnk = (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\ChatGPT Fastlane.lnk'),
   [string]$Target = (Join-Path $PSScriptRoot 'launch.cmd'),
   [string]$WorkDir = $PSScriptRoot,
-  [string]$Icon = (Join-Path $PSScriptRoot 'assets\codex-fastlane.ico'),
+  [string]$Icon = (Join-Path $PSScriptRoot 'assets\chatgpt-fastlane.ico'),
   [string]$Aumid = 'com.openai.codex.fastlane',
   [switch]$Read
 )
@@ -17,7 +17,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
-namespace CodexFastlane {
+namespace ChatGptFastlane {
   [StructLayout(LayoutKind.Sequential, Pack = 4)] public struct PROPERTYKEY { public Guid fmtid; public uint pid; }
   [StructLayout(LayoutKind.Explicit, Size = 24)] public struct PROPVARIANT { [FieldOffset(0)] public ushort vt; [FieldOffset(8)] public IntPtr p; }
   [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -61,8 +61,8 @@ namespace CodexFastlane {
   }
 }
 "@
-if ($Read) { [CodexFastlane.Lnk]::Read($Lnk); exit 0 }
+if ($Read) { [ChatGptFastlane.Lnk]::Read($Lnk); exit 0 }
 $desc = 'Codex desktop, patched copy with the Speed controls for a custom provider. Builds the installed version first if needed.'
-[CodexFastlane.Lnk]::Write($Lnk, $Target, $WorkDir, $Icon, $desc, 7, $Aumid)   # 7 = start minimised
+[ChatGptFastlane.Lnk]::Write($Lnk, $Target, $WorkDir, $Icon, $desc, 7, $Aumid)   # 7 = start minimised
 "Start-menu entry written: $Lnk"
-[CodexFastlane.Lnk]::Read($Lnk)
+[ChatGptFastlane.Lnk]::Read($Lnk)

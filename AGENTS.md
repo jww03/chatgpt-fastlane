@@ -1,6 +1,6 @@
 # Rules for agents working in this folder (Codex, Claude Code, others)
 
-This folder builds a **patched copy of the Codex desktop app for Windows** in which the Speed controls
+This folder builds a **patched copy of the ChatGPT desktop app for Windows** (OpenAI's Codex app, renamed ChatGPT in the Store; the package is still `OpenAI.Codex`) in which the Speed controls
 (Standard / Fast / Ultrafast) are shown and the chosen `service_tier` is sent for a custom model provider.
 The Microsoft Store installation is never modified; the copy lives under `build\<version>\app\`.
 Read [README.md](README.md) for the overview and [docs/notes.md](docs/notes.md) for the full analysis; this file is the operating manual.
@@ -28,7 +28,7 @@ Read [README.md](README.md) for the overview and [docs/notes.md](docs/notes.md) 
 | `status.cmd` | Installed version, builds + verification state, what is running, stale builds | `--status` |
 | `cleanup.cmd` | Show status, ask, delete builds of other versions | `--prune` |
 | `check-tier.cmd` | Tier of each turn in the last 3 hours from the engine's log database | `node check-tier.mjs 3` |
-| `shortcut.cmd` | Create/refresh the Start-menu entry "Codex Fastlane" → `launch.cmd`, icon `assets\codex-fastlane.ico`, app id `com.openai.codex.fastlane` (what the patched copy registers via gate G5; lets a pinned taskbar button adopt the running window and keeps the entry's own name) | `--shortcut` (runs `shortcut.ps1`; `-Read` prints the entry) |
+| `shortcut.cmd` | Create/refresh the Start-menu entry "ChatGPT Fastlane" → `launch.cmd`, icon `assets\chatgpt-fastlane.ico`, app id `com.openai.codex.fastlane` (what the patched copy registers via gate G5; lets a pinned taskbar button adopt the running window and keeps the entry's own name) | `--shortcut` (runs `shortcut.ps1`; `-Read` prints the entry) |
 
 | `uninstall.cmd` | Quit the copy, delete the Start-menu entry and `build\`; keeps `~\.codex`, the profile and this folder. Only on the user's request | `--uninstall` |
 
@@ -63,7 +63,7 @@ Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-
 - **First read `build\launch.log`**: every run of the script appends what it printed there, including runs from the
   Start-menu entry whose console closes by itself. `launch.cmd` passes `--gui`, so refusals (Store app running,
   another copy running) and build errors also appear in a message box
-- **"Codex Fastlane launches but closes"** usually means the launcher ran and found the copy already running (it now
+- **"ChatGPT Fastlane launches but closes"** usually means the launcher ran and found the copy already running (it now
   brings the window to the front by starting the exe a second time, which Electron's single-instance lock turns into a
   focus request) or found the Store app running (message box; the user must quit it)
 

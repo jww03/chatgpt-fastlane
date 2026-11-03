@@ -22,7 +22,7 @@
 //   node patch-codex-speed.mjs --store-update --full-copy --if-needed --launch
 //                                                    # update.cmd: let the Microsoft Store update the app first (winget),
 //                                                    # then build the new version if needed and start it
-//   node patch-codex-speed.mjs --shortcut            # shortcut.cmd: Start-menu entry "Codex Fastlane" -> launch.cmd
+//   node patch-codex-speed.mjs --shortcut            # shortcut.cmd: Start-menu entry "ChatGPT Fastlane" -> launch.cmd
 //   node patch-codex-speed.mjs --status              # status.cmd: installed version, builds, what is running
 //   node patch-codex-speed.mjs --prune               # cleanup.cmd: delete builds of other versions (never a running one)
 //   node patch-codex-speed.mjs --verify-only         # re-verify build\<ver>\app
@@ -49,7 +49,7 @@ try {
     const orig = console[k].bind(console);
     console[k] = (...a) => { orig(...a); try { fs.appendFileSync(LOG, a.map(String).join(" ") + "\n"); } catch { /* ignore */ } };
   }
-  process.on("uncaughtException", (e) => { console.error("ERROR " + (e.stack || e)); if (args.includes("--gui")) popup("Codex Fastlane could not build or start the patched copy:\n\n" + (e.message || e) + "\n\nDetails: build\\launch.log in the Codex Fastlane folder."); process.exit(1); });
+  process.on("uncaughtException", (e) => { console.error("ERROR " + (e.stack || e)); if (args.includes("--gui")) popup("ChatGPT Fastlane could not build or start the patched copy:\n\n" + (e.message || e) + "\n\nDetails: build\\launch.log in the ChatGPT Fastlane folder."); process.exit(1); });
   process.on("exit", (code) => { try { fs.appendFileSync(LOG, `--- exit ${code}\n`); } catch { /* ignore */ } });
 } catch { /* logging is best effort */ }
 const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : dflt; };
@@ -174,11 +174,11 @@ const STATUS = flag("--status");
 const PRUNE = flag("--prune");
 const SHORTCUT = flag("--shortcut");
 
-// Start-menu entry "Codex Fastlane": a shortcut to launch.cmd (minimised console while it builds or starts)
-// with assets\codex-fastlane.ico and the app's AppUserModelID, written by shortcut.ps1. The patched copy
+// Start-menu entry "ChatGPT Fastlane": a shortcut to launch.cmd (minimised console while it builds or starts)
+// with assets\chatgpt-fastlane.ico and the app's AppUserModelID, written by shortcut.ps1. The patched copy
 // has no icon of its own (Store apps keep theirs in the package manifest), so the taskbar shows a blank
 // page unless this entry is pinned there. Remove it by deleting the .lnk.
-const SHORTCUT_NAME = "Codex Fastlane";
+const SHORTCUT_NAME = "ChatGPT Fastlane";
 function shortcutPath() {
   return path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs", SHORTCUT_NAME + ".lnk");
 }
@@ -396,7 +396,7 @@ function runningChatGPT() {
 // With --gui (launch.cmd passes it), refusals and errors are also shown in a message box, because the
 // launcher's console runs minimised from the Start-menu entry and closes by itself.
 const GUI = flag("--gui");
-function popup(text, title = "Codex Fastlane") {
+function popup(text, title = "ChatGPT Fastlane") {
   if (!GUI) return;
   try {
     execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
@@ -417,11 +417,11 @@ function launch(outDir) {
   const mine = running.filter((p) => p.toLowerCase().startsWith(path.resolve(outDir).toLowerCase()));
   const other = running.filter((p) => !store.includes(p) && !mine.includes(p));
   if (store.length) {
-    const msg = "The Codex Store app is running:\n" + store[0] + "\n\nQuit it first (its tray icon too), then start Codex Fastlane again.";
+    const msg = "The ChatGPT Store app is running:\n" + store[0] + "\n\nQuit it first (its tray icon too), then start ChatGPT Fastlane again.";
     console.log(msg); popup(msg); return 2;
   }
   if (other.length) {
-    const msg = "Another Codex copy is running:\n" + other[0] + "\n\nQuit it first, then start Codex Fastlane again.";
+    const msg = "Another ChatGPT copy is running:\n" + other[0] + "\n\nQuit it first, then start ChatGPT Fastlane again.";
     console.log(msg); popup(msg); return 2;
   }
   if (mine.length) {
@@ -550,7 +550,7 @@ function prune() {
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report.verify, null, 2));
   console.log(report.verify.ok ? `OK — verified. Report: ${reportPath}` : `FAILED verification. Report: ${reportPath}`);
-  if (!report.verify.ok) { popup("The patched copy failed verification; it was not started.\n\nDetails: build\\launch.log and build\\" + VERSION + "\\report.json in the Codex Fastlane folder."); process.exit(1); }
+  if (!report.verify.ok) { popup("The patched copy failed verification; it was not started.\n\nDetails: build\\launch.log and build\\" + VERSION + "\\report.json in the ChatGPT Fastlane folder."); process.exit(1); }
   if (!report.verify.fullCopyPresent) console.log("Note: only app.asar and ChatGPT.exe are in the build folder (dry run). Run with --full-copy to make it launchable.");
   if (LAUNCH) {
     if (!report.verify.fullCopyPresent) { console.log("Cannot launch: not a full copy."); popup("Cannot start: the build folder is a dry run (no full copy). Run patch.cmd first."); process.exit(1); }

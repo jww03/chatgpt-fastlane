@@ -1,6 +1,7 @@
-# Codex Fastlane
+# ChatGPT Fastlane
 
-Enables the **Speed** controls (Standard / Fast / Ultrafast) of the Codex desktop app for a **custom model provider**,
+Enables the **Speed** controls (Standard / Fast / Ultrafast) of the ChatGPT desktop app (OpenAI's Codex app, renamed
+ChatGPT in the Microsoft Store; the package is still `OpenAI.Codex`) for a **custom model provider**,
 and makes the app actually send the chosen `service_tier`. It does so by building a patched **copy** of the installed
 Microsoft Store app; the installation itself is never modified. Windows only, Node only, no dependencies.
 
@@ -34,25 +35,25 @@ Everything else is the same script with other flags:
 | `status.cmd` | `status` | Installed version, builds and their verification state, what is running, stale builds |
 | `cleanup.cmd` | `cleanup` | Delete builds of other versions (asks first; keeps the installed version's build and anything running) |
 | `check-tier.cmd` | `tier` | Tier of each turn in the last 3 hours, from `%USERPROFILE%\.codex\logs_2.sqlite` |
-| `shortcut.cmd` | `shortcut` | Create or refresh the Start-menu entry "Codex Fastlane" (icon + application id), see below |
+| `shortcut.cmd` | `shortcut` | Create or refresh the Start-menu entry "ChatGPT Fastlane" (icon + application id), see below |
 | `uninstall.cmd` | `uninstall` | Quit the copy, remove the Start-menu entry, delete `build\` (asks first), see Uninstall |
 | | `verify` | Re-verify the current build without rebuilding |
-| | `icon` | Regenerate `assets\codex-fastlane.ico` from `make-icon.mjs` |
+| | `icon` | Regenerate `assets\chatgpt-fastlane.ico` from `make-icon.mjs` |
 
 Dry run without the 2 GB copy: `node patch-codex-speed.mjs` (writes only the patched `app.asar` and `ChatGPT.exe`).
 Options: `--src <installed app folder>`, `--out <output folder>`.
 
 ## Start menu, taskbar and icon
 
-`shortcut.cmd` creates the Start-menu entry **Codex Fastlane** (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Codex Fastlane.lnk`):
-it runs `launch.cmd` in a minimised console, carries the icon `assets\codex-fastlane.ico` and the application id
+`shortcut.cmd` creates the Start-menu entry **ChatGPT Fastlane** (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\ChatGPT Fastlane.lnk`):
+it runs `launch.cmd` in a minimised console, carries the icon `assets\chatgpt-fastlane.ico` and the application id
 `com.openai.codex.fastlane`. The patched copy registers that same id (gate G5 changes the app's own `com.openai.codex`;
 with the shared id Windows merged the entry with the running window under the name "ChatGPT"). Nothing in the Store
 package changes, so the Store keeps updating it; the launcher builds the new version on the next start.
 
 The copy itself has no icon: Store apps keep theirs in the package manifest, and `ChatGPT.exe` carries none, so its
 taskbar button shows a blank page. Pin the entry once and the taskbar uses the icon from then on: Start → type
-**Codex Fastlane** → right-click → **Pin to taskbar** (and, if you like, **Pin to Start**; unpin the Store app's tile).
+**ChatGPT Fastlane** → right-click → **Pin to taskbar** (and, if you like, **Pin to Start**; unpin the Store app's tile).
 Because the ids match, the running window groups onto the pinned button. Windows 11 does not allow scripts to pin, so
 this is the one manual step.
 
@@ -121,7 +122,7 @@ build/                  build output, ignored by git (one full app copy per vers
 `uninstall.cmd` (or `npm run uninstall`) quits the patched copy, removes the Start-menu entry and deletes `build\`
 (the 2 GB copies and `launch.log`). Then, by hand:
 
-- unpin "Codex Fastlane" from the taskbar or Start if you pinned it;
+- unpin "ChatGPT Fastlane" from the taskbar or Start if you pinned it;
 - delete this folder if you do not want the scripts any more;
 - optionally delete the copy's own profile `%APPDATA%\Codex` (window state, caches of the unpackaged copy; the Store
   app's profile is elsewhere, under `%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0`) and `%LOCALAPPDATA%\Codex\Logs`.

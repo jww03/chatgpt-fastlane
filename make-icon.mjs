@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// make-icon.mjs — build assets/codex-fastlane.ico and a 256 px PNG preview. Composition, like the Codex
+// make-icon.mjs — build assets/chatgpt-fastlane.ico and a 256 px PNG preview. Composition, like the ChatGPT
 // Start-menu tile: a dark rounded square with the white OpenAI mark (the app's own
 // Square44x44Logo.targetsize-256_altform-unplated.png), plus the Fysics Sub2API portrait circle as a badge
 // in the lower-right corner and a small amber lightning bolt in the upper-right corner ("fast").
@@ -198,7 +198,7 @@ const portrait = portraitDisc(decodePng(fs.readFileSync(PORTRAIT_FILE)));
 console.log(`mark: ${LOGO} (${logo.w} px)\nportrait: ${PORTRAIT_FILE} (${portrait.w} px)`);
 const images = SIZES.map((n) => ({ n, data: encodePng(n, compose(n, logo, portrait)) }));
 fs.mkdirSync(OUT_DIR, { recursive: true });
-fs.writeFileSync(path.join(OUT_DIR, "codex-fastlane.ico"), ico(images));
-fs.writeFileSync(path.join(OUT_DIR, "codex-fastlane-256.png"), images[images.length - 1].data);
-fs.writeFileSync(path.join(OUT_DIR, "codex-fastlane-32.png"), images.find((i) => i.n === 32).data);
-console.log(`wrote assets/codex-fastlane.ico (${SIZES.join(", ")} px), codex-fastlane-256.png, codex-fastlane-32.png`);
+fs.writeFileSync(path.join(OUT_DIR, "chatgpt-fastlane.ico"), ico(images));
+fs.writeFileSync(path.join(OUT_DIR, "chatgpt-fastlane-256.png"), images[images.length - 1].data);
+fs.writeFileSync(path.join(OUT_DIR, "chatgpt-fastlane-32.png"), images.find((i) => i.n === 32).data);
+console.log(`wrote assets/chatgpt-fastlane.ico (${SIZES.join(", ")} px), chatgpt-fastlane-256.png, chatgpt-fastlane-32.png`);

@@ -1,10 +1,10 @@
 @echo off
-title Codex Fastlane - uninstall
+title ChatGPT Fastlane - uninstall
 rem Remove the patched copy: quit it, delete the Start-menu entry and the build folder (about 2 GB).
 rem The Store app is untouched. ~\.codex (config, sessions) and this folder itself are kept; see README "Uninstall".
 cd /d "%~dp0"
-echo This quits the patched Codex copy and deletes:
-echo   - the Start-menu entry "Codex Fastlane" (unpin it from the taskbar yourself if pinned)
+echo This quits the patched ChatGPT copy and deletes:
+echo   - the Start-menu entry "ChatGPT Fastlane" (unpin it from the taskbar yourself if pinned)
 echo   - %~dp0build\ (all patched copies and logs)
 echo It keeps ~\.codex, the copy's profile in %%APPDATA%%\Codex, and this folder.
 echo.
