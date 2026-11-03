@@ -1,24 +1,34 @@
 # Rules for agents working in this folder (Codex, Claude Code, others)
 
-This folder builds a **patched copy of the ChatGPT desktop app for Windows** (OpenAI's Codex app, renamed ChatGPT in the Store; the package is still `OpenAI.Codex`) in which the Speed controls
+This folder builds a **patched copy of the ChatGPT desktop app for Windows and macOS** (OpenAI's Codex app, renamed ChatGPT in the Store; the package is still `OpenAI.Codex`; on macOS `/Applications/ChatGPT.app`, bundle id `com.openai.codex`) in which the Speed controls
 (Standard / Fast / Ultrafast) are shown and the chosen `service_tier` is sent for a custom model provider.
-The Microsoft Store installation is never modified; the copy lives under `build\<version>\app\`.
+The installed app is never modified; the copy lives under `build\<version>\app\`. On macOS `launch` uses **live mode**
+instead (the official app, patched in memory through a DevTools port); the copy `build/<version>/ChatGPT Fastlane.app`
+is the fallback (`--copy`).
 Read [README.md](README.md) for the overview and [docs/notes.md](docs/notes.md) for the full analysis; this file is the operating manual.
 
 ## What you may and may not do
 
-- **Never write into** `C:\Program Files\WindowsApps\…` (the Store package). The script refuses it; do not work around that
-- **Never start, quit or kill the app without the user's OK in the conversation.** Launching is `launch.cmd` or
-  `--launch`; both refuse while the Store app or another copy runs. Say what is running and let the user quit it
+- **Never write into** `C:\Program Files\WindowsApps\…` (the Store package) or `/Applications/ChatGPT.app` (macOS). The script
+  refuses it; do not work around that. On macOS never `codesign`, `plutil` or `xattr` the original either
+- **Never start, quit or kill the app without the user's OK in the conversation.** Launching is `launch.cmd`/`launch.command` or
+  `--launch`; both refuse while the Store app (macOS: `/Applications/ChatGPT.app`) or another copy runs. Say what is running
+  and let the user quit it
 - **Never delete `build\` folders by hand.** Use `cleanup.cmd` / `--prune`: it keeps the installed version's build and
   anything running. Ask before running it
 - **No secrets anywhere in this folder.** `~/.codex/config.toml` holds a bearer token; quote it only with the value redacted.
   Never print or log API keys, tokens or the gateway key
 - **Do not change the gateway or any server** from here. Tier behaviour on the gateway side (forced tiers per group) is
   documented in the fysics-infra repo (`docs/guests/bu01/ct121-sub2api.md`); changing it is a separate, approved task
-- No Python on this PC. Use Node (18+, tested with 24). No npm packages are needed; do not add any
+- No Python on the Windows PC (the Mac has it, but keep the tooling Node-only). Use Node (18+, tested with 24). No npm
+  packages are needed; do not add any. On macOS the script also calls the system's `plutil`, `codesign`, `cp`, `ps`,
+  `open`, `osacompile`, `osascript`
 
 ## Entry points (double-click, or run the script directly)
+
+Every `.cmd` below has a macOS twin `<name>.command` (zsh, double-click in Finder) with the same flags; on macOS the
+shortcut is `~/Applications/ChatGPT Fastlane.app` (an `osacompile` applet running launch with the Node that created it)
+and `update` cannot trigger an update (no Store; ChatGPT updates itself with Sparkle), it only explains and then launches.
 
 | File | Does | Script call |
 |---|---|---|
@@ -58,6 +68,39 @@ Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-
    47 sampled untouched files re-hash correctly. Report: `build\<version>\report.json`. A build that fails verification
    exits 1 and must not be launched.
 
+### macOS live mode (default for launch; verified 2026-11-03, ChatGPT 26.1027.61615, macOS 27.0)
+
+`liveLaunch`: refuses if a patched copy runs, or if ChatGPT runs without a DevTools port (started normally; the user must
+quit it). Computes G1–G4 on the installed `webview/assets/*.js` (aborts before starting anything if they do not match
+exactly once), runs `open -a /Applications/ChatGPT.app --args --remote-debugging-port=0 --remote-debugging-address=127.0.0.1`,
+reads the port from `~/Library/Application Support/Codex/DevToolsActivePort` and spawns the detached helper
+(`--live-helper --port N`, pid in `build/live-helper.pid`, output in `build/launch.log`). The helper: browser-level
+`Target.setAutoAttach {waitForDebuggerOnStart, flatten}`; per page session `Fetch.enable app://-/assets/*`, reload if
+the page had loaded already, resume; `Fetch.requestPaused` → `fulfillRequest` with the patched bundle, otherwise
+`continueRequest`. It exits when the DevTools socket closes (ChatGPT quit). Proof of work: `served patched …` lines in
+`build/launch.log`, then `check-tier`. Never leave a DevTools port open on an app the user did not start through launch,
+and never bind it to anything but 127.0.0.1.
+
+**Windows live mode (experimental, opt-in `--launch --live`, not yet run on Windows):** same helper; the Store app is
+started with `IApplicationActivationManager::ActivateApplication(<PackageFamilyName>!<AppId>, "<switches>")` (C# via
+PowerShell `Add-Type`, see `WIN_ACTIVATE`), the running app's switches are read from `Win32_Process.CommandLine` (main
+process = no `--type=`), the port from `%LOCALAPPDATA%\Packages\<PFN>\LocalCache\Roaming\Codex\DevToolsActivePort` (or
+`%APPDATA%\Codex\`). Record the first Windows result in docs/notes.md section 12 with its date.
+
+### macOS patched copy (`--copy`, fallback)
+
+1. **Locate:** `/Applications/ChatGPT.app` (or `~/Applications`) whose `CFBundleIdentifier` is `com.openai.codex`;
+   version = `CFBundleShortVersionString`. "ChatGPT Classic.app" (`com.openai.chat`) is another app; ignore it.
+2. **Gates:** identical; the same five regexes matched once each in this version.
+3. **Seal, two places:** `Info.plist` `ElectronAsarIntegrity["Resources/app.asar"].hash` and the pin in
+   `Codex Framework`'s section `__DATA_CONST,__asar_integrity` (sentinel `AGbevlPCksUGKNL8TSn7wGmJEuJsXb2A`, 2 flag bytes,
+   `sha256("Resources/app.asar" + "SHA256" + hash)`). Plist alone → "Failed to get integrity for validatable asar archive".
+4. **Copy:** `cp -Rc` (APFS clone), then rewrite asar, plist (own bundle id `com.openai.codex.fastlane`, name, icon,
+   `LSEnvironment CODEX_SPARKLE_ENABLED=false`) and framework; remove `embedded.provisionprofile`; `codesign --force
+   --sign -` helpers, framework, app (no hardened runtime; restricted entitlements stripped). Profile and `~/.codex` are
+   shared with the original (`~/Library/Application Support/Codex`), so the two must never run together.
+5. **Verify:** as on Windows, plus plist hash and pin equal the header hash, and `codesign --verify --deep --strict`.
+
 ## When something fails
 
 - **First read `build\launch.log`**: every run of the script appends what it printed there, including runs from the
@@ -83,13 +126,27 @@ Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-
 - **A gate matches but the tier is still `default`** → the engine's `~/.codex/config.toml` must have
   `[features] fast_mode = true`, `ultrafast_mode = true` and a model catalog that lists the speed options
   ([docs/notes.md](docs/notes.md) section 6 has the redacted excerpt)
+- **macOS: copy exits at once / crash report with `EXC_BREAKPOINT` in Codex Framework** → run
+  `"build/<v>/ChatGPT Fastlane.app/Contents/MacOS/ChatGPT"` from a terminal for a few seconds and read the `FATAL` line.
+  "Failed to get integrity" = plist hash and framework pin disagree; "Integrity check failed" = header hash differs.
+  "expected exactly 1 __asar_integrity pin" = OpenAI changed the runtime's format: stop and report, do not guess
+- **macOS: killed at launch with a code-signing reason** (Console, `AMFI`) → an entitlement that needs OpenAI's profile
+  slipped through; extend `RESTRICTED_ENTITLEMENT`, never sign with someone else's identity
+- **macOS live mode: "ChatGPT is running without Fastlane"** → ChatGPT was started normally (own Dock icon, restart after an
+  update); the user quits it and uses the launcher. **"opened no DevTools port within 30 s"** → this version may block the
+  port: report it, fall back to `--copy`. **Speed picker missing although the helper runs** → no `served patched` line in
+  `build/launch.log`: the bundle URL changed (check `livePatches`' URL mapping)
+- **macOS copy: no Computer Use picture-in-picture, "Invalid app: ChatGPT Fastlane", `dynamic_app_tools_peer_rejected`, "Sender
+  process is not authenticated"** → known limit: these check OpenAI's team signature, which no modified copy can carry
+  (README, macOS); use live mode. Do not patch the Computer Use service or the peer-authorization module to get around it
 
 ## Verifying a claim before reporting it
 
-- Tier actually sent: `node check-tier.mjs <hours>` (reads `%USERPROFILE%\.codex\logs_2.sqlite`, table `logs`,
+- Tier actually sent: `node check-tier.mjs <hours>` (reads `~/.codex/logs_2.sqlite`, i.e. `%USERPROFILE%\.codex` on Windows, table `logs`,
   column `feedback_log_body`, span `service_tier=`). Not the gateway's usage log: a group there may force a tier
 - What is running and from where: `node patch-codex-speed.mjs --status`
-- Which copy is which: the Store app runs from `\WindowsApps\`, the patched copy from `build\<version>\app\`
+- Which copy is which: the Store app runs from `\WindowsApps\` (macOS: `/Applications/ChatGPT.app`), the patched copy from
+  `build\<version>\app\` (macOS: `build/<version>/ChatGPT Fastlane.app`)
 
 ## Keep this folder true
 

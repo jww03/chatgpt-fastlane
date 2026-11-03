@@ -1,7 +1,7 @@
 {
   "name": "chatgpt-fastlane",
   "version": "1.0.0",
-  "description": "Patched copy of the ChatGPT desktop app (formerly Codex; Store package OpenAI.Codex) for Windows with the Speed (Fast / Ultrafast) controls enabled for a custom model provider. No dependencies.",
+  "description": "Patched copy of the ChatGPT desktop app (formerly Codex; Store package OpenAI.Codex, macOS bundle com.openai.codex) for Windows and macOS with the Speed (Fast / Ultrafast) controls enabled for a custom model provider. No dependencies.",
   "private": true,
   "type": "module",
   "engines": {
@@ -20,6 +20,7 @@
     "uninstall": "node patch-codex-speed.mjs --uninstall"
   },
   "os": [
-    "win32"
+    "win32",
+    "darwin"
   ]
 }

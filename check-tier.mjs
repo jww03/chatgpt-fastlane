@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // check-tier.mjs — print the service tier the Codex engine used for the latest turns, from the
-// engine's own log database (%USERPROFILE%\.codex\logs_2.sqlite, read-only). Node 22.5+ (node:sqlite).
+// engine's own log database (~/.codex/logs_2.sqlite, read-only; Windows and macOS). Node 22.5+ (node:sqlite).
 // Usage: node check-tier.mjs [hours]   (default 3)
 import { DatabaseSync } from "node:sqlite";
+import os from "node:os";
 import path from "node:path";
 
 const hours = Number(process.argv[2] ?? 3);
-const db = new DatabaseSync(path.join(process.env.USERPROFILE, ".codex", "logs_2.sqlite"), { readOnly: true });
+const db = new DatabaseSync(path.join(os.homedir(), ".codex", "logs_2.sqlite"), { readOnly: true });
 const since = Math.floor(Date.now() / 1000) - hours * 3600;
 const rows = db.prepare("select ts, process_uuid, feedback_log_body as b from logs where ts > ? and feedback_log_body like '%service_tier%' order by ts").all(since);
 const seen = new Set();

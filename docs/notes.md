@@ -1,4 +1,4 @@
-# Investigation notes and log (2026-10-30 → 2026-11-03)
+# Investigation notes and log (2026-10-30 → 2026-11-03; macOS in section 11)
 
 The long form behind [the project README](../README.md): feasibility, the four gates with code excerpts, the exact
 replacements for 26.1027.3384.0, test results, the Ultrafast gateway test and the fast-mode measurement. Section
@@ -342,3 +342,101 @@ fast_mode = true
 ```
 
 Backups of the earlier config/catalog changes: `C:\Users\wjw\.codex\backups\speed-settings-2026-10-30T07-18-41-033Z\`.
+
+## 11. macOS port (2026-11-03, MacBook Pro M1 Pro, macOS 27.0, ChatGPT 26.1027.61615)
+
+**App.** `/Applications/ChatGPT.app`, bundle id `com.openai.codex` (display name ChatGPT, alternate name Codex), version
+26.1027.61615 (build 24141), Developer ID "OpenAI OpCo, LLC (2DC432GLL2)", hardened runtime, notarized and stapled,
+`embedded.provisionprofile` "Codex Desktop AKV", Sparkle for updates. Runtime: `Codex Framework.framework` (Chromium
+156.0.8078.79) with eight helper apps. "ChatGPT Classic.app" (`com.openai.chat`, 1.2026.153) is the older native app.
+Fuses (sentinel in `Codex Framework`) as on Windows: `RunAsNode` off, `EnableNodeOptionsEnvironmentVariable` off,
+`EnableNodeCliInspectArguments` off, `EnableEmbeddedAsarIntegrityValidation` on, `OnlyLoadAppFromAsar` on,
+`EnableCookieEncryption` on. No code-signing identity on this Mac (`security find-identity` → 0), so ad hoc only.
+
+**Gates.** The Windows regexes match the macOS `app.asar` unchanged, each exactly once: G1–G4 in
+`webview/assets/app-initial-18b189e867e7.js` (@7838891, @9490791, @3166701, @2971387), G5 in `.vite/build/early-bootstrap.js`
+@8401. On macOS G5's id function is not used for an AppUserModelID (that call is win32-only) but for the log folder
+`~/Library/Logs/<id>`, the bundle id given to permission checks, DeviceCheck/attestation and push registration; the copy's
+`CFBundleIdentifier` is set to the same `com.openai.codex.fastlane` so they agree.
+
+**Seal, found by experiment.** The asar header hash (`c2175214…`) is in `Info.plist` → `ElectronAsarIntegrity`
+(`{"Resources/app.asar": {algorithm: SHA256, hash}}`). Experiments, each a fresh APFS clone in a scratch folder:
+
+| Test | Change | Result |
+|---|---|---|
+| A | ad-hoc re-sign of the app only, original asar | runs |
+| D | as A, plist hash rewritten by `plutil` to its own value | runs |
+| C | patched asar + new hash in the plist, original bundle id | `FATAL archive.cc:240 Failed to get integrity for validatable asar archive: Resources/app.asar` (`EXC_BREAKPOINT` in Codex Framework) |
+| E | as C + pin rewritten, framework and helpers re-signed ad hoc, own bundle id | runs; Speed submenu shown (user-confirmed) |
+
+The cause of C: `Codex Framework` carries a 66-byte section `__DATA_CONST,__asar_integrity` (file offset 271698448 in this
+build): ASCII sentinel `AGbevlPCksUGKNL8TSn7wGmJEuJsXb2A`, bytes `01 01`, then
+`sha256("Resources/app.asar" + "SHA256" + "c2175214…")` (derived by matching candidates; `5b5726cc…c127`). The runtime
+accepts the plist entry only if it reproduces this pin. The script checks the old pin, writes the new one, and since the
+framework's signature is then broken and the helpers load it under library validation, it re-signs helpers, framework and
+app ad hoc without hardened runtime (`codesign --verify --deep --strict` passes; `spctl` rejects, as for any ad-hoc app,
+which does not matter for a locally built bundle without quarantine). Entitlements kept from the original minus
+`com.apple.application-identifier`, `com.apple.developer.*`, `keychain-access-groups`, `com.apple.security.application-groups`.
+Pitfall on the way: `plutil -remove` reads dots as a key path, so entitlement names cannot be removed with it (done in JSON).
+
+**Updater.** Sparkle is gated in the main bundle by `"false" !== env.CODEX_SPARKLE_ENABLED`; the copy's `Info.plist` sets it
+through `LSEnvironment`, which applies when the copy is opened through Launch Services (`open`, Finder, Dock), the only way
+the scripts start it.
+
+**Build.** `node patch-codex-speed.mjs --full-copy --if-needed` builds `build/26.1027.61615/ChatGPT Fastlane.app` in 15 s;
+the `cp -Rc` clone shares blocks with `/Applications/ChatGPT.app`, new data is the asar (675 MB), the framework (277 MB) and
+the re-signed helpers' signatures. Verification: plist hash = pin = header hash, all five gates, 48 sampled files,
+`codesign --verify --deep --strict`.
+
+**Test result.** Unpatched app, 19:40–19:43: every turn `service_tier=default` (engine pid 74228). Scratch copy E,
+20:00:20–20:05:50: `priority` (engine pid 90860, from the copy's `CodexCLI.app`). Final build started through
+`~/Applications/ChatGPT Fastlane.app`, 20:11:33–20:12:52: `priority` (engine pid 98916 under `build/26.1027.61615/`);
+the Dock shows the Fastlane icon (user-confirmed). Ultrafast is not offered: this Mac's gateway model list
+(`~/.codex/models_cache.json`) lists only `priority`, and `config.toml` has no `[features]` speed flags or catalog; left
+unchanged on the user's decision.
+
+**Known limits (signature checks).** Asked to "inspect the active Codex window" the copy got "Invalid app: ChatGPT
+Fastlane" / "Computer Use was not approved to use ChatGPT Fastlane", and the Computer Use picture-in-picture preview never
+appeared, while the official app shows it with the same unsigned-in setup (user-confirmed 2026-11-03 20:24; the PiP gate
+was on in the copy too: `Remote hosted PiP availability changed enabled=true`). The copy's log has the causes:
+`dynamic_app_tools_peer_rejected reason=missing-code-signing-identity` (9×; `browser-use-peer-authorization.node` checks the
+team id of the socket peer, its parent and grandparent; the engine's parent is the ad-hoc app) and "Codex Computer Use Apple
+Event error: Sender process is not authenticated" (`SkyComputerUseService` authorises by `sender_responsible_team_id` /
+`sender_parent_team_id`). Both require team 2DC432GLL2, which no modified bundle can carry. Computer Use tools on other
+apps (WeChat, Chrome) worked, because the engine that drives them is unmodified. Not verified: push notifications, `codex://` links (registered by both apps; Launch Services picks
+one), ChatGPT sign-in through the shared keychain group.
+
+## 12. macOS live mode: patching the official app in memory (2026-11-03 evening)
+
+**Why.** The copy (section 11) cannot carry OpenAI's team signature, and the user missed the Computer Use
+picture-in-picture, which works in the official app with the same unsigned-in setup. Section 1 had listed DevTools
+interception as "plausible but untested"; this is that test.
+
+**Experiment (20:24–20:31, user's OK to quit and restart ChatGPT).** The official app started with
+`open -a /Applications/ChatGPT.app --args --remote-debugging-port=9333 --remote-debugging-address=127.0.0.1` exposes the
+port (`/json/version`: Chrome/156.0.8078.79) and three page targets, `app://-/index.html` plus `?initialRoute=/spotlight`
+and `/avatar-overlay`. With `Fetch.enable {urlPattern: "app://*"}` on a page session, `Page.reload` paused
+`app://-/assets/app-initial-18b189e867e7.js` and `Fetch.fulfillRequest` with the G1–G4-patched text (4 gates) was
+accepted: the custom `app://` scheme is interceptable. Result: Speed picker and PiP both shown (user-confirmed); a message
+sent with Standard logged `default` (20:29:00), one with Fast logged `priority` (20:31:10, engine pid 10327 under
+`/Applications/ChatGPT.app`).
+
+**Implementation.** `launch` on macOS = `liveLaunch` + `liveHelper` (AGENTS.md has the flow). Port 0 (random), read back
+from `DevToolsActivePort`; new windows held with `waitForDebuggerOnStart` until `Fetch.enable` is on; windows already
+loaded are reloaded once.
+
+**Test (20:33–20:49).** ChatGPT quit, then `node patch-codex-speed.mjs --full-copy --if-needed --launch`: 5.2 s to a
+running, patched app (port 49686, helper pid 14488). `build/launch.log`: `reloaded app://-/index.html`, then the patched
+bundle served 4 times (main window, the two auxiliary windows, a new window opened by the user). User-confirmed: Speed
+picker in the new window too, "inspect the active Codex window" works (`codex_app` tools), Computer Use PiP and its
+menu work. Engine log 20:46:47–20:49:00: every turn `priority` (engine pid 14623 under `/Applications/ChatGPT.app`).
+A launch while ChatGPT ran normally was refused ("running without Fastlane").
+
+**Trade-offs.** Nothing on disk changes, updates need nothing, all signature-dependent features keep working. While it
+runs, local processes can drive the app through the port (bound to 127.0.0.1; web pages cannot connect, no allowed
+origins). A ChatGPT started any other way, including the app's own restart after an update, is unpatched until it is
+quit and started through the launcher.
+
+**Retest after making the code cross-platform (20:58).** Cold start through launch: 4.2 s, port 51314, `reloaded
+app://-/index.html`, patched bundle served to 3 windows. Windows support (`--launch --live`, experimental) added the same
+evening, not yet run on Windows; see AGENTS.md "Windows live mode".
