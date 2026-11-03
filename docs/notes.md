@@ -470,3 +470,10 @@ startup failures).
 
 Also fixed: the Windows message box showed `\n` literally (JSON escapes inside a PowerShell string); the text now goes
 in through environment variables.
+
+**After the test (21:35).** Switching the user back from the baseline to live mode: the first start quit by itself 4 s
+later (`stop_process` in the app log, helper "served 0"); that run alone logged `in_app_updates_policy_startup_recovery`
+and a blocked `windows-offers` release-marker request, plausibly the app recovering from the forced quits of the test
+(`hasUpdate=true` was logged in the runs that stayed up too, and winget saw no update). Cause not established. The next
+start (21:36) stayed up, patched. If a live start closes again, read that run's log in `%LOCALAPPDATA%\Codex\Logs\`
+first and start once more.
