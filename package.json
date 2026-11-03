@@ -1,0 +1,18 @@
+{
+  "name": "codex-fastlane",
+  "version": "1.0.0",
+  "description": "Patched copy of the Codex desktop app (Windows) with the Speed (Fast / Ultrafast) controls enabled for a custom model provider. No dependencies.",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "patch": "node patch-codex-speed.mjs --full-copy --if-needed",
+    "launch": "node patch-codex-speed.mjs --full-copy --if-needed --launch",
+    "update": "node patch-codex-speed.mjs --store-update --full-copy --if-needed --launch",
+    "status": "node patch-codex-speed.mjs --status",
+    "cleanup": "node patch-codex-speed.mjs --prune",
+    "verify": "node patch-codex-speed.mjs --verify-only",
+    "tier": "node check-tier.mjs 3"
+  },
+  "os": [ "win32" ]
+}

@@ -1,0 +1,8 @@
+# Build output: one full copy of the app (~2 GB) per version, plus build reports
+build/
+
+# Scratch
+*.log
+node_modules/
+.DS_Store
+Thumbs.db
