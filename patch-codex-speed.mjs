@@ -22,6 +22,7 @@
 //   node patch-codex-speed.mjs --store-update --full-copy --if-needed --launch
 //                                                    # update.cmd: let the Microsoft Store update the app first (winget),
 //                                                    # then build the new version if needed and start it
+//   node patch-codex-speed.mjs --shortcut            # shortcut.cmd: Start-menu entry "Codex Fastlane" -> launch.cmd
 //   node patch-codex-speed.mjs --status              # status.cmd: installed version, builds, what is running
 //   node patch-codex-speed.mjs --prune               # cleanup.cmd: delete builds of other versions (never a running one)
 //   node patch-codex-speed.mjs --verify-only         # re-verify build\<ver>\app
@@ -140,6 +141,22 @@ const IF_NEEDED = flag("--if-needed");
 const LAUNCH = flag("--launch");
 const STATUS = flag("--status");
 const PRUNE = flag("--prune");
+const SHORTCUT = flag("--shortcut");
+
+// Start-menu entry "Codex Fastlane": a shortcut to launch.cmd (minimised console while it builds or starts)
+// with assets\codex-fastlane.ico and the app's AppUserModelID, written by shortcut.ps1. The patched copy
+// has no icon of its own (Store apps keep theirs in the package manifest), so the taskbar shows a blank
+// page unless this entry is pinned there. Remove it by deleting the .lnk.
+const SHORTCUT_NAME = "Codex Fastlane";
+function shortcutPath() {
+  return path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs", SHORTCUT_NAME + ".lnk");
+}
+function installShortcut() {
+  const out = execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+    "-File", path.join(HERE, "shortcut.ps1"), "-Lnk", shortcutPath()], { encoding: "utf8", windowsHide: true });
+  console.log(out.trim());
+  return shortcutPath();
+}
 
 // ---------------------------------------------------------------------------------------------
 // asar helpers (format: [u32 4][u32 headerPickleLen][u32 4+paddedJson][u32 jsonLen][json padded to 4][data...])
@@ -429,6 +446,7 @@ function prune() {
 (function main() {
   if (STATUS) { status(); return; }
   if (PRUNE) { prune(); return; }
+  if (SHORTCUT && !LAUNCH) { installShortcut(); return; }
   const report = { date: new Date().toISOString(), src: SRC, version: VERSION, out: OUT };
   const reportPath = path.join(path.dirname(OUT), "report.json");
   console.log(`Installed app: ${SRC} (version ${VERSION})`);
@@ -455,5 +473,10 @@ function prune() {
   console.log(report.verify.ok ? `OK — verified. Report: ${reportPath}` : `FAILED verification. Report: ${reportPath}`);
   if (!report.verify.ok) process.exit(1);
   if (!report.verify.fullCopyPresent) console.log("Note: only app.asar and ChatGPT.exe are in the build folder (dry run). Run with --full-copy to make it launchable.");
-  if (LAUNCH) { if (!report.verify.fullCopyPresent) { console.log("Cannot launch: not a full copy."); process.exit(1); } process.exit(launch(OUT)); }
+  if (LAUNCH) {
+    if (!report.verify.fullCopyPresent) { console.log("Cannot launch: not a full copy."); process.exit(1); }
+    const rc = launch(OUT);
+    if (SHORTCUT && rc === 0) { try { installShortcut(); } catch (e) { console.log("Could not write the Start-menu entry: " + e.message); } }
+    process.exit(rc);
+  }
 })();

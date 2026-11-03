@@ -28,6 +28,10 @@ Read [README.md](README.md) for the overview and [docs/notes.md](docs/notes.md) 
 | `status.cmd` | Installed version, builds + verification state, what is running, stale builds | `--status` |
 | `cleanup.cmd` | Show status, ask, delete builds of other versions | `--prune` |
 | `check-tier.cmd` | Tier of each turn in the last 3 hours from the engine's log database | `node check-tier.mjs 3` |
+| `shortcut.cmd` | Create/refresh the Start-menu entry "Codex Fastlane" → `launch.cmd`, icon `assets\codex-fastlane.ico`, app id `com.openai.codex` (what the copy registers; lets a pinned taskbar button adopt the running window) | `--shortcut` (runs `shortcut.ps1`; `-Read` prints the entry) |
+
+Pinning to the taskbar or Start is a manual step for the user; Windows 11 refuses it from scripts. The Store package's own
+tile, protocol handlers and Start entry stay as they are. The icon comes from `make-icon.mjs` (`npm run icon`).
 
 Dry run (patched `app.asar` and `ChatGPT.exe` only, no 2 GB copy): `node patch-codex-speed.mjs`.
 Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-only`.

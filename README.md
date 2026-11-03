@@ -34,10 +34,28 @@ Everything else is the same script with other flags:
 | `status.cmd` | `status` | Installed version, builds and their verification state, what is running, stale builds |
 | `cleanup.cmd` | `cleanup` | Delete builds of other versions (asks first; keeps the installed version's build and anything running) |
 | `check-tier.cmd` | `tier` | Tier of each turn in the last 3 hours, from `%USERPROFILE%\.codex\logs_2.sqlite` |
+| `shortcut.cmd` | `shortcut` | Create or refresh the Start-menu entry "Codex Fastlane" (icon + application id), see below |
 | | `verify` | Re-verify the current build without rebuilding |
+| | `icon` | Regenerate `assets\codex-fastlane.ico` from `make-icon.mjs` |
 
 Dry run without the 2 GB copy: `node patch-codex-speed.mjs` (writes only the patched `app.asar` and `ChatGPT.exe`).
 Options: `--src <installed app folder>`, `--out <output folder>`.
+
+## Start menu, taskbar and icon
+
+`shortcut.cmd` creates the Start-menu entry **Codex Fastlane** (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Codex Fastlane.lnk`):
+it runs `launch.cmd` in a minimised console, carries the icon `assets\codex-fastlane.ico` and the application id
+`com.openai.codex`, which is the id the patched copy registers at start-up. Nothing in the Store package changes, so the
+Store keeps updating it; the launcher builds the new version on the next start.
+
+The copy itself has no icon: Store apps keep theirs in the package manifest, and `ChatGPT.exe` carries none, so its
+taskbar button shows a blank page. Pin the entry once and the taskbar uses the icon from then on: Start → type
+**Codex Fastlane** → right-click → **Pin to taskbar** (and, if you like, **Pin to Start**; unpin the Store app's tile).
+Because the ids match, the running window groups onto the pinned button. Windows 11 does not allow scripts to pin, so
+this is the one manual step.
+
+The icon is drawn by `make-icon.mjs` (dark rounded square, amber bolt; `npm run icon` regenerates it after edits).
+Protocol links (`codex://`, the browser extension) still open the Store app; that association lives in the package.
 
 ## After an app update
 
@@ -83,6 +101,8 @@ Windows only. The durable fix is upstream, in github.com/openai/codex: derive sp
 patch-codex-speed.mjs   locate, patch, repack, re-seal, copy, verify, Store update, status, prune, launch
 check-tier.mjs          service tier per turn from the engine's log database
 *.cmd                   double-click entry points (table above)
+shortcut.ps1            writes the Start-menu entry (IShellLink + AppUserModelID); -Read prints it
+make-icon.mjs, assets/  the icon (generator and output)
 AGENTS.md / CLAUDE.md   operating manual for LLM agents working in this folder
 docs/notes.md           the investigation: gates with code excerpts, exact replacements, test results, measurements
 build/                  build output, ignored by git (one full app copy per version)
