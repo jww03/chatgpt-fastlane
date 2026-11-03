@@ -396,6 +396,16 @@ function status() {
   if (stale.length) console.log(`Old builds that cleanup.cmd would delete: ${stale.map((b) => b.name + (b.running ? " (running now, kept until quit)" : "")).join(", ")}`);
 }
 
+// fs.rmSync failed with EPERM on a copied app folder (2026-11-03: no read-only files, nothing running,
+// 3841 items; `rm -rf` and `rmdir /s /q` delete it fine). So: try Node, then fall back to cmd's rmdir.
+function removeTree(dir) {
+  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); } catch (e) {
+    console.log(`  Node could not delete it (${e.code}); using rmdir /s /q instead.`);
+    const r = spawnSync("cmd.exe", ["/d", "/c", "rmdir", "/s", "/q", dir], { stdio: "inherit", windowsHide: true });
+    if (fs.existsSync(dir)) throw new Error(`could not delete ${dir} (rmdir exit ${r.status}); check for open files and delete it by hand`);
+  }
+}
+
 // Delete builds of other versions. A build whose ChatGPT.exe is running is kept. The build of the
 // installed version is always kept; the unversioned build\app is deleted only once a versioned build
 // of the same version exists, so there is always one launchable copy left.
@@ -408,7 +418,7 @@ function prune() {
     if (!stale) continue;
     if (b.running) { console.log(`Keeping ${b.dir}: a Codex copy is running from it. Quit it and run cleanup.cmd again.`); continue; }
     console.log(`Deleting ${b.dir} (version ${b.version})...`);
-    fs.rmSync(b.dir, { recursive: true, force: true });
+    removeTree(b.dir);
     if (b.legacy) fs.rmSync(path.join(HERE, "build", "report.json"), { force: true });
     removed++;
   }
