@@ -573,8 +573,11 @@ function winActivate(args) { return ps(WIN_ACTIVATE, { FASTLANE_AUMID: winPackag
 
 function devToolsPortFiles() {
   if (MAC) return [path.join(os.homedir(), "Library", "Application Support", "Codex", "DevToolsActivePort")];
-  return [path.join(process.env.LOCALAPPDATA, "Packages", winPackage().pfn, "LocalCache", "Roaming", "Codex", "DevToolsActivePort"),
-    path.join(process.env.APPDATA, "Codex", "DevToolsActivePort")];
+  // Windows: Chromium's user-data folder is Codex\web\Codex inside the app's profile (seen 2026-11-03, 26.1027.3384.0);
+  // the Store app's profile is redirected into the package's LocalCache. The plain Codex\ paths are kept as fallbacks.
+  const pkgRoaming = path.join(process.env.LOCALAPPDATA, "Packages", winPackage().pfn, "LocalCache", "Roaming");
+  return [path.join(pkgRoaming, "Codex", "web", "Codex", "DevToolsActivePort"), path.join(pkgRoaming, "Codex", "DevToolsActivePort"),
+    path.join(process.env.APPDATA, "Codex", "web", "Codex", "DevToolsActivePort"), path.join(process.env.APPDATA, "Codex", "DevToolsActivePort")];
 }
 
 // port from a DevToolsActivePort file written at or after `since` (ms since epoch)
@@ -804,9 +807,11 @@ function popup(text, title = "ChatGPT Fastlane") {
     } catch { /* console text is still there */ }
     return;
   }
+  // text and title go in through the environment: PowerShell strings do not understand JSON escapes like \n
   try {
     execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
-      `(New-Object -ComObject WScript.Shell).Popup(${JSON.stringify(text)}, 120, ${JSON.stringify(title)}, 48) | Out-Null`], { windowsHide: true });
+      "(New-Object -ComObject WScript.Shell).Popup($env:FASTLANE_POPUP_TEXT, 120, $env:FASTLANE_POPUP_TITLE, 48) | Out-Null"],
+      { windowsHide: true, env: { ...process.env, FASTLANE_POPUP_TEXT: text, FASTLANE_POPUP_TITLE: title } });
   } catch { /* console text is still there */ }
 }
 

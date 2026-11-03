@@ -81,11 +81,17 @@ the page had loaded already, resume; `Fetch.requestPaused` → `fulfillRequest` 
 `build/launch.log`, then `check-tier`. Never leave a DevTools port open on an app the user did not start through launch,
 and never bind it to anything but 127.0.0.1.
 
-**Windows live mode (experimental, opt-in `--launch --live`, not yet run on Windows):** same helper; the Store app is
-started with `IApplicationActivationManager::ActivateApplication(<PackageFamilyName>!<AppId>, "<switches>")` (C# via
-PowerShell `Add-Type`, see `WIN_ACTIVATE`), the running app's switches are read from `Win32_Process.CommandLine` (main
-process = no `--type=`), the port from `%LOCALAPPDATA%\Packages\<PFN>\LocalCache\Roaming\Codex\DevToolsActivePort` (or
-`%APPDATA%\Codex\`). Record the first Windows result in docs/notes.md section 12 with its date.
+**Windows live mode (opt-in `--launch --live`; passed on the PC 2026-11-03, Store app 26.1027.3384.0, docs/notes.md
+section 12 "Windows test"):** same helper; the Store app is started with
+`IApplicationActivationManager::ActivateApplication(<PackageFamilyName>!<AppId>, "<switches>")` (C# via PowerShell
+`Add-Type`, see `WIN_ACTIVATE`) and keeps its package identity; the running app's switches are read from
+`Win32_Process.CommandLine` (main process = no `--type=`). The port file is in Chromium's user-data folder, which on
+Windows is `Codex\web\Codex` inside the profile: `%LOCALAPPDATA%\Packages\<PFN>\LocalCache\Roaming\Codex\web\Codex\DevToolsActivePort`
+(`devToolsPortFiles` also tries `Codex\` and `%APPDATA%\Codex\…`). The engine runs from
+`%LOCALAPPDATA%\OpenAI\Codex\bin\<hash>\codex.exe`, a copy the Store app makes of its own `resources\codex.exe`: to prove
+which app sent a tier, check the engine's parent process, not its path. Computer Use picture-in-picture does not exist
+on Windows in this version (every native PiP call is `darwin`-only), so do not chase it there. The `launch.cmd` default
+stays the patched copy until the V1 cleanup makes live mode the only method.
 
 ### macOS patched copy (`--copy`, fallback)
 

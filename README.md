@@ -126,11 +126,13 @@ the app's own updates (Sparkle). After an update the next launch simply patches 
 Costs: while ChatGPT runs this way, any local process of yours can drive the app through the DevTools port (web pages
 cannot: no remote origins are allowed). The helper exits when ChatGPT quits. `status` shows the live state.
 
-On Windows the same live mode is in the script but **experimental and untested** (opt-in:
-`node patch-codex-speed.mjs --launch --live --gui`): it starts the Store app by its AppUserModelID with the same two
+On Windows the same live mode is in the script as an opt-in, **tested on 2026-11-03** (Store app 26.1027.3384.0):
+`node patch-codex-speed.mjs --launch --live --gui`. It starts the Store app by its AppUserModelID with the same two
 switches (`IApplicationActivationManager`, so the app keeps its package identity) and reads the port from
-`%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Roaming\Codex\DevToolsActivePort`. If it passes on the
-PC it replaces the 2 GB copy there too.
+`%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Roaming\Codex\web\Codex\DevToolsActivePort`. Result: about
+6 s to a patched app, Speed in every window, Fast sent as `priority` by the Store app's own engine. Computer Use
+picture-in-picture is macOS-only in the Windows app (also when started normally), so live mode loses nothing there.
+`launch.cmd` still builds and starts the 2 GB copy until live mode becomes the only method.
 
 ### Patched copy (fallback, `--copy`)
 

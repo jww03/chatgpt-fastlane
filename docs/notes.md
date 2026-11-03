@@ -440,3 +440,33 @@ quit and started through the launcher.
 **Retest after making the code cross-platform (20:58).** Cold start through launch: 4.2 s, port 51314, `reloaded
 app://-/index.html`, patched bundle served to 3 windows. Windows support (`--launch --live`, experimental) added the same
 evening, not yet run on Windows; see AGENTS.md "Windows live mode".
+
+### Windows test, 2026-11-03 (PC, Windows 11 Pro for Workstations 10.0.26200, Store app 26.1027.3384.0)
+
+Run 21:09–21:33 by the user's request, with their OK to quit and start ChatGPT and the patched copy. Command
+`node patch-codex-speed.mjs --launch --live --gui`; the patched copy and every `ChatGPT.exe` were quit first.
+
+| Step | Result |
+|---|---|
+| Activation (`IApplicationActivationManager`, `OpenAI.Codex_2p2nqsd0c76g0!App`) | pass: the main process runs from `\WindowsApps\` with both switches on its command line (`Win32_Process.CommandLine`), so it keeps package identity |
+| DevTools port | first run 21:11 **fail**: port open (127.0.0.1:56401, `/json/version` Chrome/156.0.8078.48) but the script waited 30 s for `DevToolsActivePort` in the wrong folder. On Windows Chromium's user-data folder is `Codex\web\Codex` inside the profile: `%LOCALAPPDATA%\Packages\OpenAI.Codex_2p2nqsd0c76g0\LocalCache\Roaming\Codex\web\Codex\DevToolsActivePort`. Fixed in `devToolsPortFiles` (that path first, the old ones as fallbacks) |
+| Cold start after the fix (21:14:05) | pass: 5.8 s, port 51161, `Live helper ready`, `reloaded app://-/index.html`, `served patched app://-/assets/app-initial-4267e52fe5b0.js` ×2 (main window, spotlight window) |
+| Speed picker, Fast, second window | pass (user-confirmed, all windows show Speed) |
+| Tier | pass: every turn 21:15:35–21:18:14 `priority` (`check-tier.mjs 1`, 15 turns) |
+| Engine | pid 55732, parent = the live `ChatGPT.exe` (pid 54036). It runs from `%LOCALAPPDATA%\OpenAI\Codex\bin\22cfb1d302613eae\codex.exe`, not from `\WindowsApps\`: the Store app copies its runtime there itself (2026-10-30, log `copiedRuntimeLocation=true`); SHA-256 identical to the package's `resources\codex.exe` |
+| Launch again (21:19:40) | pass: same main process, "already running; brought ChatGPT to the front" |
+| `--status` | pass: "ChatGPT patched in memory (DevTools port 51161, helper pid 51072)" |
+| Computer Use picture-in-picture | not available on Windows in this version, live mode or not (below) |
+
+**Picture-in-picture is macOS-only in 26.1027.3384.0.** In live mode no overlay window appeared (no `avatar-overlay`
+target, nothing for the helper to serve). Baseline at 21:19:58: the Store app started normally from Start
+(`shell:AppsFolder\OpenAI.Codex_2p2nqsd0c76g0!App`, no switches, no helper); PiP failed there too (user-confirmed). Both
+runs log `Remote hosted PiP availability changed enabled=true`, which is only the account's flag: every native call of the
+remote-hosted PiP content host in the main bundle (`registerRemoteHostedPIPContentHost`,
+`connectRemoteHostedPIPContentHost`, the video-frame, visibility and task handlers) starts with
+`if("darwin"!==platform)return false`. So live mode costs nothing on Windows that the Store app has, and unlike the patched
+copy it keeps package identity (the copy logs "The process has no package identity" and `unified-computer-use` MCP
+startup failures).
+
+Also fixed: the Windows message box showed `\n` literally (JSON escapes inside a PowerShell string); the text now goes
+in through environment variables.
