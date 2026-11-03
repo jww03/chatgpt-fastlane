@@ -58,6 +58,13 @@ Options: `--src <installed app folder>`, `--out <output app folder>`, `--verify-
 
 ## When something fails
 
+- **First read `build\launch.log`**: every run of the script appends what it printed there, including runs from the
+  Start-menu entry whose console closes by itself. `launch.cmd` passes `--gui`, so refusals (Store app running,
+  another copy running) and build errors also appear in a message box
+- **"Codex Fastlane launches but closes"** usually means the launcher ran and found the copy already running (it now
+  brings the window to the front by starting the exe a second time, which Electron's single-instance lock turns into a
+  focus request) or found the Store app running (message box; the user must quit it)
+
 - **"gates could not be matched exactly once"** → OpenAI changed the code around that gate. Do not loosen the regex
   blindly. Extract the bundle ([docs/notes.md](docs/notes.md) section 2: read the asar header JSON, seek to the file's offset), search for
   `personalAccessToken`, `amazonBedrock`, `serviceTier`, read the surrounding function, then adjust only that gate's regex

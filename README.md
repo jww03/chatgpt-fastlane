@@ -28,7 +28,7 @@ Everything else is the same script with other flags:
 
 | Entry point | `npm run` | Does |
 |---|---|---|
-| `launch.cmd` | `launch` | Build the installed version if not built yet, then start the copy. Refuses while the Store app or another copy runs |
+| `launch.cmd` | `launch` | Build the installed version if not built yet, then start the copy. If the copy already runs, brings its window to the front; if the Store app runs, says so in a message box. Output also goes to `build\launch.log` |
 | `update.cmd` | `update` | Ask the Microsoft Store for an update (winget, product `9PLM9XGG6VKS`), build the new version if needed, start it, print status |
 | `patch.cmd` | `patch` | Build only, start nothing |
 | `status.cmd` | `status` | Installed version, builds and their verification state, what is running, stale builds |

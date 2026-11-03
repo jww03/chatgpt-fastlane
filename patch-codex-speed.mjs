@@ -38,6 +38,20 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
+
+// Everything printed also goes to build\launch.log, so a run started from the Start menu (whose console
+// closes by itself) can be read afterwards.
+const LOG = path.join(HERE, "build", "launch.log");
+try {
+  fs.mkdirSync(path.dirname(LOG), { recursive: true });
+  fs.appendFileSync(LOG, `\n=== ${new Date().toISOString()} ${process.argv.slice(2).join(" ")}\n`);
+  for (const k of ["log", "error", "warn"]) {
+    const orig = console[k].bind(console);
+    console[k] = (...a) => { orig(...a); try { fs.appendFileSync(LOG, a.map(String).join(" ") + "\n"); } catch { /* ignore */ } };
+  }
+  process.on("uncaughtException", (e) => { console.error("ERROR " + (e.stack || e)); if (args.includes("--gui")) popup("Codex Fastlane could not build or start the patched copy:\n\n" + (e.message || e) + "\n\nDetails: build\\launch.log in the Codex Fastlane folder."); process.exit(1); });
+  process.on("exit", (code) => { try { fs.appendFileSync(LOG, `--- exit ${code}\n`); } catch { /* ignore */ } });
+} catch { /* logging is best effort */ }
 const opt = (name, dflt) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : dflt; };
 const flag = (name) => args.includes(name);
 
@@ -379,18 +393,45 @@ function runningChatGPT() {
   } catch { return []; }
 }
 
+// With --gui (launch.cmd passes it), refusals and errors are also shown in a message box, because the
+// launcher's console runs minimised from the Start-menu entry and closes by itself.
+const GUI = flag("--gui");
+function popup(text, title = "Codex Fastlane") {
+  if (!GUI) return;
+  try {
+    execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
+      `(New-Object -ComObject WScript.Shell).Popup(${JSON.stringify(text)}, 120, ${JSON.stringify(title)}, 48) | Out-Null`], { windowsHide: true });
+  } catch { /* console text is still there */ }
+}
+
+function startExe(outDir) {
+  const exe = path.join(outDir, "ChatGPT.exe");
+  const child = spawn(exe, [], { detached: true, stdio: "ignore", cwd: outDir, windowsHide: false });
+  child.unref();
+  return { exe, pid: child.pid };
+}
+
 function launch(outDir) {
   const running = runningChatGPT();
   const store = running.filter((p) => /\\WindowsApps\\/i.test(p));
   const mine = running.filter((p) => p.toLowerCase().startsWith(path.resolve(outDir).toLowerCase()));
   const other = running.filter((p) => !store.includes(p) && !mine.includes(p));
-  if (store.length) { console.log("The Store app is running (" + store[0] + "). Quit it first (tray icon too), then run this again."); return 2; }
-  if (mine.length) { console.log("The patched copy for this version is already running."); return 0; }
-  if (other.length) { console.log("Another Codex copy is running: " + other[0] + ". Quit it first."); return 2; }
-  const exe = path.join(outDir, "ChatGPT.exe");
-  const child = spawn(exe, [], { detached: true, stdio: "ignore", cwd: outDir, windowsHide: false });
-  child.unref();
-  console.log(`Launched ${exe} (pid ${child.pid})`);
+  if (store.length) {
+    const msg = "The Codex Store app is running:\n" + store[0] + "\n\nQuit it first (its tray icon too), then start Codex Fastlane again.";
+    console.log(msg); popup(msg); return 2;
+  }
+  if (other.length) {
+    const msg = "Another Codex copy is running:\n" + other[0] + "\n\nQuit it first, then start Codex Fastlane again.";
+    console.log(msg); popup(msg); return 2;
+  }
+  if (mine.length) {
+    // Electron single-instance: a second start hands over to the running instance, which brings its window up.
+    startExe(outDir);
+    console.log("The patched copy is already running; brought its window to the front.");
+    return 0;
+  }
+  const { exe, pid } = startExe(outDir);
+  console.log(`Launched ${exe} (pid ${pid})`);
   return 0;
 }
 
@@ -492,10 +533,10 @@ function prune() {
   fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report.verify, null, 2));
   console.log(report.verify.ok ? `OK — verified. Report: ${reportPath}` : `FAILED verification. Report: ${reportPath}`);
-  if (!report.verify.ok) process.exit(1);
+  if (!report.verify.ok) { popup("The patched copy failed verification; it was not started.\n\nDetails: build\\launch.log and build\\" + VERSION + "\\report.json in the Codex Fastlane folder."); process.exit(1); }
   if (!report.verify.fullCopyPresent) console.log("Note: only app.asar and ChatGPT.exe are in the build folder (dry run). Run with --full-copy to make it launchable.");
   if (LAUNCH) {
-    if (!report.verify.fullCopyPresent) { console.log("Cannot launch: not a full copy."); process.exit(1); }
+    if (!report.verify.fullCopyPresent) { console.log("Cannot launch: not a full copy."); popup("Cannot start: the build folder is a dry run (no full copy). Run patch.cmd first."); process.exit(1); }
     const rc = launch(OUT);
     if (SHORTCUT && rc === 0) { try { installShortcut(); } catch (e) { console.log("Could not write the Start-menu entry: " + e.message); } }
     process.exit(rc);
